@@ -1,0 +1,14 @@
+.git/
+.DS_Store
+.env
+
+FRANCISCO SOTO/
+
+app/.env
+app/MI_OPENROUTER_KEY.txt
+app/runs/
+app/samples/
+app/test_output*.pdf
+app/__pycache__/
+app/src/__pycache__/
+*.pyc
