@@ -1,0 +1,497 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convision.local/schemas/extraction.schema.json",
+  "title": "Insurance Comparative Extraction",
+  "description": "Schema for literal extraction results from one source PDF before analysis or editorial transformation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "document_id",
+    "document_type",
+    "source_file",
+    "source_metadata",
+    "fields",
+    "extraction_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "document_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "document_type": {
+      "type": "string",
+      "enum": [
+        "current_policy",
+        "quote",
+        "generated_comparison_reference"
+      ]
+    },
+    "document_role": {
+      "type": "string",
+      "enum": [
+        "current_policy",
+        "initial_option",
+        "middle_option",
+        "pro_option",
+        "reference_output",
+        "unknown"
+      ]
+    },
+    "source_file": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_metadata": {
+      "$ref": "#/$defs/sourceMetadata"
+    },
+    "normalization_context": {
+      "$ref": "#/$defs/normalizationContext"
+    },
+    "fields": {
+      "$ref": "#/$defs/extractedFields"
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceSection"
+      },
+      "default": []
+    },
+    "tables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/extractedTable"
+      },
+      "default": []
+    },
+    "extraction_notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "extraction_status": {
+      "$ref": "#/$defs/extractionStatus"
+    }
+  },
+  "$defs": {
+    "sourceMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_name",
+        "mime_type"
+      ],
+      "properties": {
+        "file_name": {
+          "type": "string"
+        },
+        "mime_type": {
+          "type": "string",
+          "const": "application/pdf"
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text_layer_available": {
+          "type": "boolean"
+        },
+        "ocr_used": {
+          "type": "boolean"
+        },
+        "language": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "checksum_sha256": {
+          "type": "string"
+        }
+      }
+    },
+    "normalizationContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "type": "string",
+          "default": "CLP"
+        },
+        "reference_unit": {
+          "type": "string",
+          "default": "UF"
+        },
+        "locale": {
+          "type": "string",
+          "default": "es-CL"
+        }
+      }
+    },
+    "sourceSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "section_id",
+        "label",
+        "pages",
+        "text"
+      ],
+      "properties": {
+        "section_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "extractedTable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table_id",
+        "label",
+        "page",
+        "headers",
+        "rows"
+      ],
+      "properties": {
+        "table_id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "headers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "extractionStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "needs_review"
+          ]
+        },
+        "missing_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page",
+        "text"
+      ],
+      "properties": {
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "type": "string"
+        },
+        "section_label": {
+          "type": "string"
+        },
+        "bbox": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "fieldValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ],
+      "properties": {
+        "value": {},
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "default": []
+        },
+        "normalized": {
+          "type": "boolean",
+          "default": false
+        },
+        "parser": {
+          "type": "string"
+        }
+      }
+    },
+    "vehicleData": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "insured_name": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "insured_rut": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "vehicle_make": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "vehicle_model": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "vehicle_version": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "vehicle_year": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "vehicle_plate": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "vehicle_usage": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "fuel_type": {
+          "$ref": "#/$defs/fieldValue"
+        }
+      }
+    },
+    "quoteIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "insurer_name": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "product_name": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "quote_number": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "policy_number": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "issue_date": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "valid_until": {
+          "$ref": "#/$defs/fieldValue"
+        }
+      }
+    },
+    "moneyOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deductible_uf"
+      ],
+      "properties": {
+        "deductible_uf": {
+          "type": "number",
+          "minimum": 0
+        },
+        "payment_method": {
+          "type": "string"
+        },
+        "installments": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "monthly_premium_uf": {
+          "type": "number",
+          "minimum": 0
+        },
+        "monthly_premium_clp": {
+          "type": "number",
+          "minimum": 0
+        },
+        "annual_premium_uf": {
+          "type": "number",
+          "minimum": 0
+        },
+        "annual_premium_clp": {
+          "type": "number",
+          "minimum": 0
+        },
+        "source_value_type": {
+          "type": "string",
+          "enum": [
+            "monthly_installment",
+            "annual_total",
+            "computed"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "default": []
+        }
+      }
+    },
+    "coverageItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Standardized coverage key. For RC excess coverage use rc_exceso only when the document explicitly states an additional RC layer that applies after the base RC is exhausted."
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "raw_label": {
+          "type": "string"
+        },
+        "raw_value": {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          },
+          "default": []
+        }
+      }
+    },
+    "extractedFields": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "vehicle": {
+          "$ref": "#/$defs/vehicleData"
+        },
+        "identity": {
+          "$ref": "#/$defs/quoteIdentity"
+        },
+        "pricing_options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/moneyOption"
+          },
+          "default": []
+        },
+        "current_payment_summary": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "current_monthly_premium_uf": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "current_monthly_premium_clp": {
+          "$ref": "#/$defs/fieldValue"
+        },
+        "coverages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageItem"
+          },
+          "default": []
+        },
+        "assistances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageItem"
+          },
+          "default": []
+        },
+        "extra_features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverageItem"
+          },
+          "default": []
+        },
+        "raw_summary_text": {
+          "$ref": "#/$defs/fieldValue"
+        }
+      }
+    }
+  }
+}

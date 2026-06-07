@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convision.local/schemas/final-render.schema.json",
+  "title": "Insurance Comparative Final Render Payload",
+  "description": "Schema for the final JSON consumed by the PDF renderer/template engine.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meta",
+    "branding",
+    "insured",
+    "current_policy",
+    "comparison_context",
+    "offers",
+    "footer"
+  ],
+  "properties": {
+    "meta": {
+      "$ref": "#/$defs/meta"
+    },
+    "branding": {
+      "$ref": "#/$defs/branding"
+    },
+    "insured": {
+      "$ref": "#/$defs/insured"
+    },
+    "current_policy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/currentPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "comparison_context": {
+      "$ref": "#/$defs/comparisonContext"
+    },
+    "offers": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/renderOffer"
+      }
+    },
+    "footer": {
+      "$ref": "#/$defs/footer"
+    }
+  },
+  "$defs": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "date_label",
+        "uf_value_used",
+        "uf_value_used_formatted",
+        "uf_0_clp_formatted",
+        "uf_3_clp_formatted",
+        "uf_5_clp_formatted",
+        "uf_10_clp_formatted",
+        "uf_reference_date",
+        "cuotas_base_label"
+      ],
+      "properties": {
+        "date_label": {
+          "type": "string"
+        },
+        "uf_value_used": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uf_value_used_formatted": {
+          "type": "string"
+        },
+        "uf_0_clp_formatted": {
+          "type": "string"
+        },
+        "uf_3_clp_formatted": {
+          "type": "string"
+        },
+        "uf_5_clp_formatted": {
+          "type": "string"
+        },
+        "uf_10_clp_formatted": {
+          "type": "string"
+        },
+        "uf_reference_date": {
+          "type": "string"
+        },
+        "cuotas_base_label": {
+          "type": "string"
+        }
+      }
+    },
+    "branding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "broker_name",
+        "broker_website"
+      ],
+      "properties": {
+        "broker_name": {
+          "type": "string"
+        },
+        "broker_website": {
+          "type": "string"
+        }
+      }
+    },
+    "insured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "vehicle_display_name",
+        "plate",
+        "usage"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "vehicle_display_name": {
+          "type": "string"
+        },
+        "plate": {
+          "type": "string"
+        },
+        "usage": {
+          "type": "string"
+        }
+      }
+    },
+    "currentPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "insurer",
+        "product_name",
+        "header_label",
+        "deductible_label",
+        "monthly_premium_uf_label",
+        "monthly_premium_clp_label",
+        "rc_label",
+        "rc_emergente_label",
+        "rc_moral_label",
+        "rc_lucro_cesante_label",
+        "rc_exceso_label",
+        "auto_replacement_label",
+        "copago_reemplazo_label",
+        "workshop_label",
+        "reposicion_a_nuevo_label",
+        "perdida_total_label",
+        "assistance_label",
+        "asiento_pasajeros_label",
+        "defensa_penal_label"
+      ],
+      "properties": {
+        "insurer": {
+          "type": "string"
+        },
+        "product_name": {
+          "type": "string"
+        },
+        "header_label": {
+          "type": "string"
+        },
+        "deductible_label": {
+          "type": "string"
+        },
+        "monthly_premium_uf_label": {
+          "type": "string"
+        },
+        "monthly_premium_clp_label": {
+          "type": "string"
+        },
+        "rc_label": {
+          "type": "string"
+        },
+        "rc_emergente_label": {
+          "type": "string"
+        },
+        "rc_moral_label": {
+          "type": "string"
+        },
+        "rc_lucro_cesante_label": {
+          "type": "string"
+        },
+        "rc_exceso_label": {
+          "type": "string"
+        },
+        "auto_replacement_label": {
+          "type": "string"
+        },
+        "copago_reemplazo_label": {
+          "type": "string"
+        },
+        "workshop_label": {
+          "type": "string"
+        },
+        "reposicion_a_nuevo_label": {
+          "type": "string"
+        },
+        "perdida_total_label": {
+          "type": "string"
+        },
+        "assistance_label": {
+          "type": "string"
+        },
+        "asiento_pasajeros_label": {
+          "type": "string"
+        },
+        "defensa_penal_label": {
+          "type": "string"
+        }
+      }
+    },
+    "comparisonContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deductible_explainer_title",
+        "deductible_explainer_body",
+        "methodology_note",
+        "headline_insight",
+        "base_deductible_uf"
+      ],
+      "properties": {
+        "deductible_explainer_title": {
+          "type": "string"
+        },
+        "deductible_explainer_body": {
+          "type": "string"
+        },
+        "methodology_note": {
+          "type": "string"
+        },
+        "headline_insight": {
+          "type": "string"
+        },
+        "base_deductible_uf": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    "coverageDisplay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "comparison_label",
+        "is_luc_empty"
+      ],
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "comparison_label": {
+          "type": "string",
+          "enum": [
+            "MEJORA",
+            "IGUAL",
+            "PEOR",
+            "MIXTO",
+            ""
+          ]
+        },
+        "is_luc_empty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "deductibleDisplayOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deductible_label",
+        "premium_label",
+        "premium_clp_label",
+        "is_same_as_current",
+        "is_proposed"
+      ],
+      "properties": {
+        "deductible_label": {
+          "type": "string"
+        },
+        "premium_label": {
+          "type": "string"
+        },
+        "premium_clp_label": {
+          "type": "string"
+        },
+        "is_same_as_current": {
+          "type": "boolean"
+        },
+        "is_proposed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "renderOffer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "position",
+        "recommended",
+        "recommended_badge_label",
+        "tier_label",
+        "category",
+        "column_theme",
+        "badge_label",
+        "insurer",
+        "product_name",
+        "product_title",
+        "monthly_premium_uf_label",
+        "monthly_premium_clp_label",
+        "deductible_payment_label",
+        "savings_label",
+        "rc",
+        "rc_emergente",
+        "rc_moral",
+        "rc_lucro_cesante",
+        "rc_exceso",
+        "auto_replacement",
+        "copago_reemplazo",
+        "workshop",
+        "reposicion_a_nuevo",
+        "perdida_total",
+        "assistance",
+        "asiento_pasajeros",
+        "defensa_penal",
+        "deductible_options_title",
+        "deductible_options",
+        "extra_highlights_title",
+        "extra_highlights",
+        "summary_note",
+        "summary_lead",
+        "summary_rest"
+      ],
+      "properties": {
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "recommended": {
+          "type": "boolean"
+        },
+        "recommended_badge_label": {
+          "type": "string"
+        },
+        "tier_label": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "column_theme": {
+          "type": "string"
+        },
+        "badge_label": {
+          "type": "string"
+        },
+        "insurer": {
+          "type": "string"
+        },
+        "product_name": {
+          "type": "string"
+        },
+        "product_title": {
+          "type": "string"
+        },
+        "monthly_premium_uf_label": {
+          "type": "string"
+        },
+        "monthly_premium_clp_label": {
+          "type": "string"
+        },
+        "deductible_payment_label": {
+          "type": "string"
+        },
+        "savings_label": {
+          "type": "string"
+        },
+        "rc": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "rc_emergente": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "rc_moral": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "rc_lucro_cesante": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "rc_exceso": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "auto_replacement": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "copago_reemplazo": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "workshop": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "reposicion_a_nuevo": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "perdida_total": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "assistance": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "asiento_pasajeros": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "defensa_penal": {
+          "$ref": "#/$defs/coverageDisplay"
+        },
+        "deductible_options_title": {
+          "type": "string"
+        },
+        "deductible_options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deductibleDisplayOption"
+          },
+          "default": []
+        },
+        "extra_highlights_title": {
+          "type": "string"
+        },
+        "extra_highlights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "summary_note": {
+          "type": "string"
+        },
+        "summary_lead": {
+          "type": "string"
+        },
+        "summary_rest": {
+          "type": "string"
+        }
+      }
+    },
+    "footer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valuation_note",
+        "validity_note",
+        "broker_signature"
+      ],
+      "properties": {
+        "valuation_note": {
+          "type": "string"
+        },
+        "validity_note": {
+          "type": "string"
+        },
+        "broker_signature": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

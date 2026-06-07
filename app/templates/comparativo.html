@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: Arial, "Liberation Sans", sans-serif;
+  font-size: 10.8px;
+  color: #1f2937;
+  line-height: 1.15;
+  background-color: #f0f2f5;
+  width: 297mm;
+  height: 210mm;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* TOP HEADER BRANDING */
+.header-top {
+  width: 100%;
+  height: 75px;
+  background-color: #0f1b5c;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 26px;
+  flex-shrink: 0;
+}
+
+.header-top-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.header-top-left .main-title {
+  font-size: 19px;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  line-height: 1.1;
+}
+
+.header-top-left .subtitle {
+  font-size: 9.5px;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.header-top-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-top-data {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 8.5px;
+  line-height: 1.35;
+}
+
+.header-top-data span {
+  opacity: 0.95;
+}
+
+.badge-header-green {
+  background-color: #7dd13f;
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* SUB-HEADER METADATA BAR */
+.header-sub {
+  width: 100%;
+  height: 32px;
+  background-color: #1fb5e8;
+  color: #ffffff;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  gap: 30px;
+  padding: 0 26px;
+  flex-shrink: 0;
+}
+
+.header-sub-separator {
+  opacity: 0.5;
+  margin: 0 4px;
+}
+
+/* DEDUCTIBLE EXPLAINER FRANGE */
+.explainer-bar {
+  width: 100%;
+  height: 24px;
+  background-color: #ffffff;
+  border-bottom: 1.5px solid #e5e7eb;
+  padding: 0 26px;
+  font-size: 9.5px;
+  color: #4b5563;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.explainer-bar strong {
+  color: #0f1b5c;
+}
+
+/* MAIN COLUMNS — table layout for stable WeasyPrint rendering */
+.columns-table-wrap {
+  flex: 0 0 calc(210mm - 177px);
+  width: 100%;
+  height: calc(210mm - 177px);
+  padding: 15px 14px 10px;
+}
+
+.columns-table {
+  width: 100%;
+  height: 100%;
+  border-collapse: separate;
+  border-spacing: 9px 0;
+  table-layout: fixed;
+}
+
+.columns-table tbody,
+.columns-table tr {
+  height: 100%;
+}
+
+.col-cell {
+  position: relative;
+  vertical-align: top;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.col-cell.recommended {
+  border: 2.5px solid #7dd13f;
+  box-shadow: 0 4px 8px rgba(125, 209, 63, 0.12);
+}
+
+.col-inner {
+  position: static;
+  width: 100%;
+  height: calc(210mm - 177px);
+  min-height: calc(210mm - 177px);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 110px;
+}
+
+/* COLUMN HEADER */
+.col-header {
+  height: 70px;
+  padding: 14px 12px;
+  color: #ffffff;
+  display: block;
+  text-align: left;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.08);
+  position: relative;
+}
+
+.col-header.actual { background-color: #6B7280; }
+.col-header.azul { background-color: #0F1B5C; }
+.col-header.celeste { background-color: #1FB5E8; }
+.col-header.naranja { background-color: #F97316; }
+.col-header.cafe { background-color: #8B5E34; }
+
+.col-badge {
+  font-size: 7.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.9);
+  display: block;
+}
+
+.col-insurer {
+  font-size: 9.5px;
+  font-weight: bold;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+  margin-top: 1px;
+  display: block;
+}
+
+.col-product {
+  font-size: 15.5px;
+  font-weight: 800;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.15;
+  display: block;
+}
+
+.badge-rec {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background-color: #7dd13f;
+  color: #ffffff;
+  font-size: 6px;
+  font-weight: 800;
+  padding: 1.5px 5px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+/* PRICING TABLE SECTION */
+.pricing-section {
+  min-height: 112px;
+  padding: 10px 12px 8px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.pricing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+.pricing-table th {
+  font-size: 8.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #4b5563;
+  text-align: right;
+  padding: 1.5px 2px;
+  border-bottom: 1.5px solid #cbd5e1;
+}
+
+.pricing-table th:first-child {
+  text-align: left;
+}
+
+.pricing-table td {
+  padding: 3px 2px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.pricing-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pricing-table td.ded-label {
+  font-weight: bold;
+  color: #374151;
+  text-align: left;
+}
+
+.pricing-table td.val-uf {
+  font-weight: 700;
+  color: #0f1b5c;
+  text-align: right;
+}
+
+.pricing-table td.val-clp {
+  color: #4b5563;
+  text-align: right;
+  font-weight: 500;
+}
+
+.pricing-section.azul tr.proposed td { background-color: #f0f2fe; }
+.pricing-section.azul tr.proposed td.ded-label { color: #0F1B5C; }
+.pricing-section.celeste tr.proposed td { background-color: #ecf9ff; }
+.pricing-section.celeste tr.proposed td.ded-label { color: #0284c7; }
+.pricing-section.naranja tr.proposed td { background-color: #fff7ed; }
+.pricing-section.naranja tr.proposed td.ded-label { color: #c2410c; }
+.pricing-section.actual tr.highlighted td { background-color: #f3f4f6; }
+
+/* COVERAGES — real HTML table, borders contained */
+.coverages-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  background-color: #ffffff;
+  flex-shrink: 0;
+}
+
+.coverages-table td {
+  padding: 4.5px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: top;
+}
+
+.coverages-table tr:last-child td {
+  border-bottom: none;
+}
+
+.coverage-label-inline {
+  font-weight: 700;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.coverage-val {
+  color: #1f2937;
+  font-weight: 500;
+  text-align: right;
+  word-break: break-word;
+}
+
+.coverage-val.val-mejora {
+  color: #047857;
+  font-weight: 700;
+}
+
+.coverage-val.val-peor {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.coverage-val.val-luc-empty {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+/* EDITORIAL — separate block, no shared borders with coverages */
+.editorial-section {
+  display: block;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f8fafc;
+  height: 110px;
+  min-height: 110px;
+  margin-top: 0;
+  padding: 10px 12px 12px;
+  border-top: 2px solid #e2e8f0;
+  font-size: 9.5px;
+  color: #4b5563;
+  flex-shrink: 0;
+}
+
+.col-cell.recommended .editorial-section {
+  bottom: 1.5px;
+}
+
+.editorial-title {
+  font-weight: bold;
+  color: #0f1b5c;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  margin-bottom: 3px;
+}
+
+.editorial-body {
+  line-height: 1.3;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.editorial-body .money-nowrap {
+  white-space: nowrap;
+}
+
+.editorial-body .editorial-rest {
+  font-style: italic;
+}
+
+/* FOOTER — pushed to page bottom only when there is room */
+.footer {
+  width: 100%;
+  height: 21px;
+  background-color: #0f1b5c;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 8px;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.footer-left {
+  font-weight: 500;
+}
+
+.footer-right {
+  font-weight: 600;
+  opacity: 0.9;
+}
+</style>
+</head>
+<body>
+
+{% macro cov_class(cov) -%}
+{%- if cov.is_luc_empty %}val-luc-empty{%- elif cov.comparison_label == 'MEJORA' %}val-mejora{%- elif cov.comparison_label == 'PEOR' %}val-peor{%- endif -%}
+{%- endmacro %}
+
+{% macro current_cov(label) -%}
+<span class="coverage-val{% if label == '--' %} val-luc-empty{% endif %}">{{ label }}</span>
+{%- endmacro %}
+
+<!-- TOP HEADER BRANDING -->
+<div class="header-top">
+  <div class="header-top-left">
+    <div class="main-title">Detalle Comparativo de Opciones</div>
+    <div class="subtitle">Refcar · Seguro de Vehículo Comercial</div>
+  </div>
+  <div class="header-top-right">
+    <div class="header-top-data">
+      <span><b>Vehículo:</b> {{ insured.vehicle_display_name }} &nbsp;|&nbsp; <b>Patente:</b> {{ insured.plate }}</span>
+      <span><b>Cliente:</b> {{ insured.name }} &nbsp;|&nbsp; <b>Uso:</b> {{ insured.usage }}</span>
+    </div>
+    {% if current_policy %}
+      <span class="badge-header-green">CON PÓLIZA VIGENTE</span>
+    {% else %}
+      <span class="badge-header-green" style="background-color: #4b5563;">PROPUESTA</span>
+    {% endif %}
+  </div>
+</div>
+
+<!-- SUB-HEADER METADATA BAR -->
+<div class="header-sub">
+  <span><b>UF Referencia:</b> ${{ meta.uf_value_used_formatted }} ({{ meta.uf_reference_date }})</span>
+  <span class="header-sub-separator">|</span>
+  <span><b>Cuotas base:</b> {{ meta.cuotas_base_label }}</span>
+  <span class="header-sub-separator">|</span>
+  <span><b>Fecha:</b> {{ meta.uf_reference_date }}</span>
+</div>
+
+<!-- DEDUCTIBLE EXPLAINER FRANGE -->
+<div class="explainer-bar">
+  <span><strong>DEDUCIBLE:</strong> Monto que la empresa paga de su bolsillo ante un siniestro. Mayor deducible = prima mensual más baja.</span>
+  <span><b>0 UF</b> ≈ ${{ meta.uf_0_clp_formatted }} &nbsp;&middot;&nbsp; <b>3 UF</b> ≈ ${{ meta.uf_3_clp_formatted }} &nbsp;&middot;&nbsp; <b>5 UF</b> ≈ ${{ meta.uf_5_clp_formatted }} &nbsp;&middot;&nbsp; <b>10 UF</b> ≈ ${{ meta.uf_10_clp_formatted }}</span>
+</div>
+
+<!-- MAIN COLUMNS -->
+<div class="columns-table-wrap">
+  <table class="columns-table">
+    <tr>
+      {% if current_policy %}
+      <td class="col-cell">
+        <div class="col-inner">
+          <div class="col-header actual">
+            <div class="col-badge">Tu Seguro Hoy</div>
+            <div class="col-insurer">{{ current_policy.insurer }}</div>
+            <div class="col-product">{{ current_policy.product_name }}</div>
+          </div>
+          <div class="pricing-section actual">
+            <table class="pricing-table">
+              <thead>
+                <tr>
+                  <th>Deducible</th>
+                  <th>UF/mes</th>
+                  <th>CLP/mes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlighted">
+                  <td class="ded-label">Mismo de hoy</td>
+                  <td class="val-uf">{{ current_policy.deductible_label }}</td>
+                  <td class="val-clp">{{ current_policy.monthly_premium_uf_label }} ({{ current_policy.monthly_premium_clp_label }})</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <table class="coverages-table">
+            <tr><td class="coverage-label-inline">RC Emergente:</td><td>{{ current_cov(current_policy.rc_emergente_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">RC Daño Moral:</td><td>{{ current_cov(current_policy.rc_moral_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">RC Lucro Cesante:</td><td>{{ current_cov(current_policy.rc_lucro_cesante_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">RC en Exceso:</td><td>{{ current_cov(current_policy.rc_exceso_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Auto Reemplazo:</td><td>{{ current_cov(current_policy.auto_replacement_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Copago Reemplazo:</td><td>{{ current_cov(current_policy.copago_reemplazo_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Taller:</td><td>{{ current_cov(current_policy.workshop_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Reposición Nuevo:</td><td>{{ current_cov(current_policy.reposicion_a_nuevo_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Pérdida Total:</td><td>{{ current_cov(current_policy.perdida_total_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Asistencia:</td><td>{{ current_cov(current_policy.assistance_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Asiento Pasajeros:</td><td>{{ current_cov(current_policy.asiento_pasajeros_label) }}</td></tr>
+            <tr><td class="coverage-label-inline">Defensa Penal:</td><td>{{ current_cov(current_policy.defensa_penal_label) }}</td></tr>
+          </table>
+          <div class="editorial-section">
+            <div class="editorial-title">Póliza Actual</div>
+            <div class="editorial-body">
+              Esta es la cobertura contratada actualmente.<br><span style="font-style: italic;">Sirve como base de comparación para evaluar mejoras y ahorros.</span>
+            </div>
+          </div>
+        </div>
+      </td>
+      {% endif %}
+
+      {% for offer in offers %}
+      <td class="col-cell{% if offer.recommended %} recommended{% endif %}">
+        <div class="col-inner">
+          <div class="col-header {{ offer.column_theme }}">
+            <div class="col-badge">{{ offer.badge_label }}</div>
+            <div class="col-insurer">{{ offer.insurer }}</div>
+            <div class="col-product">{{ offer.product_name }}</div>
+            {% if offer.recommended and offer.recommended_badge_label %}
+              <span class="badge-rec">RECOMENDADA</span>
+            {% endif %}
+          </div>
+          <div class="pricing-section {{ offer.column_theme }}">
+            <table class="pricing-table">
+              <thead>
+                <tr>
+                  <th>Deducible</th>
+                  <th>UF/mes</th>
+                  <th>CLP/mes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if offer.deductible_options %}
+                  {% for opt in offer.deductible_options[:4] %}
+                  <tr class="{% if opt.is_proposed %}proposed{% elif opt.is_same_as_current %}highlighted{% endif %}">
+                    <td class="ded-label">
+                      {{ opt.deductible_label }}
+                      {% if opt.is_proposed %} (PROPUESTA){% endif %}
+                    </td>
+                    <td class="val-uf">{{ opt.premium_label }}</td>
+                    <td class="val-clp">{{ opt.premium_clp_label }}</td>
+                  </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr class="proposed">
+                    <td class="ded-label">{{ offer.deductible_payment_label }}</td>
+                    <td class="val-uf">{{ offer.monthly_premium_uf_label }}</td>
+                    <td class="val-clp">{{ offer.monthly_premium_clp_label }}</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+          <table class="coverages-table">
+            <tr><td class="coverage-label-inline">RC Emergente:</td><td><span class="coverage-val {{ cov_class(offer.rc_emergente) }}">{{ offer.rc_emergente.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">RC Daño Moral:</td><td><span class="coverage-val {{ cov_class(offer.rc_moral) }}">{{ offer.rc_moral.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">RC Lucro Cesante:</td><td><span class="coverage-val {{ cov_class(offer.rc_lucro_cesante) }}">{{ offer.rc_lucro_cesante.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">RC en Exceso:</td><td><span class="coverage-val {{ cov_class(offer.rc_exceso) }}">{{ offer.rc_exceso.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Auto Reemplazo:</td><td><span class="coverage-val {{ cov_class(offer.auto_replacement) }}">{{ offer.auto_replacement.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Copago Reemplazo:</td><td><span class="coverage-val {{ cov_class(offer.copago_reemplazo) }}">{{ offer.copago_reemplazo.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Taller:</td><td><span class="coverage-val {{ cov_class(offer.workshop) }}">{{ offer.workshop.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Reposición Nuevo:</td><td><span class="coverage-val {{ cov_class(offer.reposicion_a_nuevo) }}">{{ offer.reposicion_a_nuevo.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Pérdida Total:</td><td><span class="coverage-val {{ cov_class(offer.perdida_total) }}">{{ offer.perdida_total.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Asistencia:</td><td><span class="coverage-val {{ cov_class(offer.assistance) }}">{{ offer.assistance.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Asiento Pasajeros:</td><td><span class="coverage-val {{ cov_class(offer.asiento_pasajeros) }}">{{ offer.asiento_pasajeros.value }}</span></td></tr>
+            <tr><td class="coverage-label-inline">Defensa Penal:</td><td><span class="coverage-val {{ cov_class(offer.defensa_penal) }}">{{ offer.defensa_penal.value }}</span></td></tr>
+          </table>
+          <div class="editorial-section">
+            <div class="editorial-title">En Simple</div>
+            <div class="editorial-body">
+              {% if offer.summary_rest %}
+                <strong>{{ offer.summary_lead|safe }}</strong><br><span class="editorial-rest">{{ offer.summary_rest|safe }}</span>
+              {% else %}
+                {{ offer.summary_lead|safe }}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </td>
+      {% endfor %}
+    </tr>
+  </table>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-left">
+    {{ footer.valuation_note }} &nbsp;&middot;&nbsp; {{ footer.validity_note }}
+  </div>
+  <div class="footer-right">
+    {{ footer.broker_signature }}
+  </div>
+</div>
+
+</body>
+</html>

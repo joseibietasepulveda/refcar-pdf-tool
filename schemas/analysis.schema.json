@@ -1,0 +1,587 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://convision.local/schemas/analysis.schema.json",
+  "title": "Insurance Comparative Analysis",
+  "description": "Schema for the normalized and analyzed result built from either current policy plus quotes or quote-only comparison documents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "source_documents",
+    "context",
+    "insured",
+    "current_policy",
+    "offers",
+    "recommendation"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_documents": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/sourceDocumentRef"
+      }
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "insured": {
+      "$ref": "#/$defs/insured"
+    },
+    "current_policy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/currentPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "offers": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/offerAnalysis"
+      }
+    },
+    "recommendation": {
+      "$ref": "#/$defs/recommendation"
+    },
+    "footer": {
+      "$ref": "#/$defs/footer"
+    },
+    "quality_control": {
+      "$ref": "#/$defs/qualityControl"
+    }
+  },
+  "$defs": {
+    "sourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string"
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "text": {
+          "type": "string"
+        },
+        "field_path": {
+          "type": "string"
+        }
+      }
+    },
+    "derivedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value"
+      ],
+      "properties": {
+        "value": {},
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "rule",
+            "llm",
+            "manual",
+            "hybrid"
+          ]
+        },
+        "reasoning_basis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          },
+          "default": []
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "sourceDocumentRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "document_id",
+        "document_type",
+        "source_file"
+      ],
+      "properties": {
+        "document_id": {
+          "type": "string"
+        },
+        "document_type": {
+          "type": "string",
+          "enum": [
+            "current_policy",
+            "quote",
+            "generated_comparison_reference"
+          ]
+        },
+        "source_file": {
+          "type": "string"
+        },
+        "insurer_name": {
+          "type": "string"
+        },
+        "product_name": {
+          "type": "string"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "reference_unit",
+        "uf_value_used",
+        "uf_reference_date",
+        "base_deductible_uf"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string",
+          "const": "CLP"
+        },
+        "reference_unit": {
+          "type": "string",
+          "const": "UF"
+        },
+        "uf_value_used": {
+          "type": "number",
+          "minimum": 0
+        },
+        "uf_reference_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "base_deductible_uf": {
+          "type": "number",
+          "minimum": 0
+        },
+        "comparison_rule_note": {
+          "type": "string"
+        }
+      }
+    },
+    "insured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "vehicle_make",
+        "vehicle_model",
+        "vehicle_year",
+        "plate",
+        "usage"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "vehicle_make": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "vehicle_model": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "vehicle_version": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "vehicle_year": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "plate": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "usage": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "vehicle_display_name": {
+          "$ref": "#/$defs/derivedField"
+        }
+      }
+    },
+    "comparisonResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "label"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "label": {
+          "type": "string",
+          "enum": [
+            "MEJORA",
+            "IGUAL",
+            "PEOR",
+            "MIXTO"
+          ]
+        }
+      }
+    },
+    "currentPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "insurer",
+        "product_name",
+        "deductible_uf",
+        "monthly_premium_uf",
+        "monthly_premium_clp",
+        "rc",
+        "rc_emergente",
+        "rc_moral",
+        "rc_lucro_cesante",
+        "rc_exceso",
+        "auto_replacement",
+        "copago_reemplazo",
+        "workshop",
+        "reposicion_a_nuevo",
+        "perdida_total",
+        "assistance",
+        "asiento_pasajeros",
+        "defensa_penal"
+      ],
+      "properties": {
+        "insurer": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "product_name": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "policy_number": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "deductible_uf": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "monthly_premium_uf": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "monthly_premium_clp": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "payment_method": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "installments": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "rc": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_emergente": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_moral": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_lucro_cesante": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_exceso": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "auto_replacement": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "copago_reemplazo": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "workshop": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "reposicion_a_nuevo": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "perdida_total": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "assistance": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "asiento_pasajeros": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "defensa_penal": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "feature_highlights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/derivedField"
+          },
+          "default": []
+        }
+      }
+    },
+    "deductibleOptionAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deductible_uf",
+        "monthly_premium_uf",
+        "monthly_premium_clp",
+        "is_same_as_current",
+        "is_proposed"
+      ],
+      "properties": {
+        "deductible_uf": {
+          "type": "number",
+          "minimum": 0
+        },
+        "monthly_premium_uf": {
+          "type": "number",
+          "minimum": 0
+        },
+        "monthly_premium_clp": {
+          "type": "number",
+          "minimum": 0
+        },
+        "is_same_as_current": {
+          "type": "boolean"
+        },
+        "is_proposed": {
+          "type": "boolean"
+        },
+        "source_references": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceReference"
+          },
+          "default": []
+        }
+      }
+    },
+    "offerAnalysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "offer_id",
+        "position",
+        "insurer",
+        "product_name",
+        "commercial_tier",
+        "comparison_deductible_uf",
+        "payment_method",
+        "installments",
+        "monthly_premium_uf",
+        "monthly_premium_clp",
+        "monthly_savings_vs_current_clp",
+        "rc",
+        "rc_emergente",
+        "rc_moral",
+        "rc_lucro_cesante",
+        "rc_exceso",
+        "auto_replacement",
+        "copago_reemplazo",
+        "workshop",
+        "reposicion_a_nuevo",
+        "perdida_total",
+        "assistance",
+        "asiento_pasajeros",
+        "defensa_penal",
+        "extra_highlights"
+      ],
+      "properties": {
+        "offer_id": {
+          "type": "string"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "insurer": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "product_name": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "commercial_tier": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "comparison_deductible_uf": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "payment_method": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "installments": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "monthly_premium_uf": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "monthly_premium_clp": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "monthly_savings_vs_current_clp": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "rc": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_emergente": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_moral": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_lucro_cesante": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "rc_exceso": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "auto_replacement": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "copago_reemplazo": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "workshop": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "reposicion_a_nuevo": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "perdida_total": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "assistance": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "asiento_pasajeros": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "defensa_penal": {
+          "$ref": "#/$defs/comparisonResult"
+        },
+        "extra_highlights": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/derivedField"
+          },
+          "default": []
+        },
+        "deductible_options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deductibleOptionAnalysis"
+          },
+          "default": []
+        },
+        "editorial_summary": {
+          "$ref": "#/$defs/derivedField"
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recommended_offer_id",
+        "headline_insight",
+        "reason_summary"
+      ],
+      "properties": {
+        "recommended_offer_id": {
+          "type": "string"
+        },
+        "headline_insight": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "reason_summary": {
+          "$ref": "#/$defs/derivedField"
+        },
+        "reason_tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "best_balance",
+              "lowest_price",
+              "more_extras",
+              "better_deductible",
+              "better_assistance",
+              "better_rc",
+              "manual_override"
+            ]
+          },
+          "default": []
+        }
+      }
+    },
+    "footer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "broker_name": {
+          "type": "string"
+        },
+        "broker_website": {
+          "type": "string"
+        }
+      }
+    },
+    "qualityControl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needs_manual_review": {
+          "type": "boolean",
+          "default": false
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "missing_inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    }
+  }
+}

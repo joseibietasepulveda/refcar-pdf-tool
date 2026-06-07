@@ -1,0 +1,25 @@
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local secrets / env
+app/.env
+app/MI_OPENROUTER_KEY.txt
+
+# Local outputs
+app/runs/
+
+# Local/client PDFs and generated artifacts
+app/samples/
+app/test_output*.pdf
+FRANCISCO SOTO/

@@ -1,0 +1,8 @@
+.env
+MI_OPENROUTER_KEY.txt
+runs/
+samples/
+test_output*.pdf
+__pycache__/
+*.pyc
+.DS_Store
