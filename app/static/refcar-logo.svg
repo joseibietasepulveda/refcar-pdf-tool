@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="256" cy="256" r="235" fill="#FAFAF7" stroke="#D8D8D8" stroke-width="6"/>
+  <text x="154" y="230" font-family="Arial, Helvetica, sans-serif" font-size="124" font-weight="800" fill="#071462">ref</text>
+  <text x="213" y="344" font-family="Arial, Helvetica, sans-serif" font-size="126" font-weight="800" fill="#071462">ar</text>
+  <path d="M177 326C141 326 115 299 115 261C115 224 141 196 177 196C200 196 219 206 231 224L198 249C193 241 186 237 177 237C163 237 153 247 153 261C153 276 163 286 177 286C187 286 194 281 199 273L232 297C220 315 201 326 177 326Z" fill="url(#cGradient)"/>
+  <circle cx="221" cy="199" r="13" fill="#21B7E8"/>
+  <defs>
+    <linearGradient id="cGradient" x1="115" y1="196" x2="224" y2="318" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#91F21B"/>
+      <stop offset="0.52" stop-color="#32D4D7"/>
+      <stop offset="1" stop-color="#0A64D8"/>
+    </linearGradient>
+  </defs>
+</svg>

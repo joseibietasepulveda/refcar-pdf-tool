@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 import os
 import tempfile
 import json
@@ -49,6 +50,153 @@ LEGACY_CASE_MODE_LABELS = {
 }
 QUOTE_ROLE_KEYS = [key for key in ROLE_KEYS if key != "current_policy"]
 QUOTE_ROLE_LABELS = [ROLE_DISPLAY[key] for key in QUOTE_ROLE_KEYS]
+REFCAR_LOGO_PATH = Path(__file__).resolve().parent / "static" / "refcar-logo.svg"
+LOGIN_USER_ENV = "REFCAR_LOGIN_USER"
+LOGIN_PASSWORD_ENV = "REFCAR_LOGIN_PASSWORD"
+DEFAULT_LOGIN_USER = "felipe_carmona"
+
+
+def _apply_refcar_theme() -> None:
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background:
+                radial-gradient(circle at 15% 15%, rgba(31, 183, 232, 0.16), transparent 28%),
+                radial-gradient(circle at 82% 18%, rgba(145, 242, 27, 0.12), transparent 24%),
+                linear-gradient(135deg, #071014 0%, #0B1026 48%, #050713 100%);
+        }
+        [data-testid="stHeader"] {
+            background: rgba(5, 7, 19, 0);
+        }
+        [data-testid="stSidebar"] {
+            background: rgba(8, 14, 24, 0.92);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .refcar-login-shell {
+            min-height: 74vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 42px 16px 8px;
+        }
+        .refcar-login-card {
+            width: min(760px, 100%);
+            padding: 42px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 30px;
+            background:
+                linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.04)),
+                rgba(7, 16, 20, 0.76);
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+            backdrop-filter: blur(18px);
+            text-align: center;
+        }
+        .refcar-logo-wrap {
+            width: 158px;
+            height: 158px;
+            margin: 0 auto 22px;
+            border-radius: 999px;
+            padding: 8px;
+            background: linear-gradient(145deg, #91F21B, #21B7E8 46%, #071462);
+            box-shadow: 0 18px 45px rgba(33, 183, 232, 0.28);
+        }
+        .refcar-login-title {
+            margin: 0;
+            color: #FFFFFF;
+            font-size: 2.35rem;
+            font-weight: 850;
+            letter-spacing: -0.045em;
+        }
+        .refcar-login-subtitle {
+            margin: 10px auto 0;
+            max-width: 560px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 1.03rem;
+            line-height: 1.55;
+        }
+        .refcar-login-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 18px;
+            padding: 7px 13px;
+            border: 1px solid rgba(145, 242, 27, 0.28);
+            border-radius: 999px;
+            color: #B8FF61;
+            background: rgba(145, 242, 27, 0.08);
+            font-size: 0.84rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        div[data-testid="stForm"] {
+            border: 0;
+            padding: 0;
+            background: transparent;
+        }
+        div[data-testid="stForm"] input {
+            border-radius: 14px;
+        }
+        div[data-testid="stForm"] button {
+            border-radius: 999px;
+            min-height: 48px;
+            background: linear-gradient(90deg, #21B7E8, #91F21B);
+            color: #071462;
+            font-weight: 850;
+            border: 0;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_login() -> None:
+    expected_user = os.getenv(LOGIN_USER_ENV, DEFAULT_LOGIN_USER).strip()
+    expected_password = os.getenv(LOGIN_PASSWORD_ENV, "").strip()
+
+    st.markdown('<div class="refcar-login-shell"><div class="refcar-login-card">', unsafe_allow_html=True)
+    st.markdown('<div class="refcar-login-chip">Acceso privado Refcar</div>', unsafe_allow_html=True)
+    if REFCAR_LOGO_PATH.is_file():
+        st.image(str(REFCAR_LOGO_PATH), width=142)
+    st.markdown(
+        """
+        <h1 class="refcar-login-title">Herramienta Comparativa Refcar</h1>
+        <p class="refcar-login-subtitle">
+            Ingresa con tus credenciales para generar comparativos de seguros y descargar propuestas en PDF.
+        </p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if not expected_password:
+        st.error(f"Falta configurar `{LOGIN_PASSWORD_ENV}` en Railway.")
+        st.stop()
+
+    with st.form("refcar_login_form"):
+        username = st.text_input("Usuario", placeholder="usuario")
+        password = st.text_input("Clave", type="password", placeholder="clave")
+        submitted = st.form_submit_button("Entrar a Refcar", use_container_width=True)
+
+    if submitted:
+        user_ok = hmac.compare_digest(username.strip(), expected_user)
+        password_ok = hmac.compare_digest(password, expected_password)
+        if user_ok and password_ok:
+            st.session_state.refcar_authenticated = True
+            st.rerun()
+        else:
+            st.error("Usuario o clave incorrectos.")
+
+    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.stop()
+
+
+def _require_login() -> None:
+    if "refcar_authenticated" not in st.session_state:
+        st.session_state.refcar_authenticated = False
+    if not st.session_state.refcar_authenticated:
+        _render_login()
 
 # ------------------------------------------------------------------
 # Getters and Setters for analysis schema elements
@@ -261,6 +409,8 @@ def _build_runs_dataframe(runs: list[dict]) -> pd.DataFrame:
 
 def main():
     st.set_page_config(page_title="Herramienta Seguros Refcar", layout="wide")
+    _apply_refcar_theme()
+    _require_login()
 
     st.title("Herramienta de Seguros - Formato Comparativo Refcar")
     st.caption("Evolución de plantillas automatizadas con edición de JSON manual integrada.")
@@ -327,6 +477,12 @@ def main():
         )
 
         with st.sidebar:
+            st.markdown("### Refcar")
+            st.caption("Sesión iniciada.")
+            if st.button("Cerrar sesión", use_container_width=True):
+                st.session_state.refcar_authenticated = False
+                st.rerun()
+            st.divider()
             st.header("Configuración")
             case_mode_label = st.radio(
                 "Modo de comparación",
