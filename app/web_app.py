@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import hmac
 import os
 import tempfile
@@ -73,15 +74,14 @@ def _apply_refcar_theme() -> None:
             background: rgba(8, 14, 24, 0.92);
             border-right: 1px solid rgba(255, 255, 255, 0.08);
         }
+        .block-container {
+            padding-top: 2.4rem;
+        }
         .refcar-login-shell {
-            min-height: 74vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 42px 16px 8px;
+            max-width: 760px;
+            margin: 2.2rem auto 1.4rem;
         }
         .refcar-login-card {
-            width: min(760px, 100%);
             padding: 42px;
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 30px;
@@ -92,14 +92,13 @@ def _apply_refcar_theme() -> None:
             backdrop-filter: blur(18px);
             text-align: center;
         }
-        .refcar-logo-wrap {
-            width: 158px;
-            height: 158px;
+        .refcar-login-logo {
+            display: block;
+            width: 150px;
+            height: 150px;
             margin: 0 auto 22px;
             border-radius: 999px;
-            padding: 8px;
-            background: linear-gradient(145deg, #91F21B, #21B7E8 46%, #071462);
-            box-shadow: 0 18px 45px rgba(33, 183, 232, 0.28);
+            box-shadow: 0 18px 45px rgba(33, 183, 232, 0.22);
         }
         .refcar-login-title {
             margin: 0;
@@ -130,6 +129,10 @@ def _apply_refcar_theme() -> None:
             letter-spacing: 0.02em;
             text-transform: uppercase;
         }
+        .refcar-login-form {
+            max-width: 440px;
+            margin: 0 auto;
+        }
         div[data-testid="stForm"] {
             border: 0;
             padding: 0;
@@ -155,17 +158,23 @@ def _apply_refcar_theme() -> None:
 def _render_login() -> None:
     expected_user = os.getenv(LOGIN_USER_ENV, DEFAULT_LOGIN_USER).strip()
     expected_password = os.getenv(LOGIN_PASSWORD_ENV, "").strip()
-
-    st.markdown('<div class="refcar-login-shell"><div class="refcar-login-card">', unsafe_allow_html=True)
-    st.markdown('<div class="refcar-login-chip">Acceso privado Refcar</div>', unsafe_allow_html=True)
+    logo_html = ""
     if REFCAR_LOGO_PATH.is_file():
-        st.image(str(REFCAR_LOGO_PATH), width=142)
+        logo_b64 = base64.b64encode(REFCAR_LOGO_PATH.read_bytes()).decode("ascii")
+        logo_html = f'<img class="refcar-login-logo" src="data:image/svg+xml;base64,{logo_b64}" alt="Refcar">'
+
     st.markdown(
-        """
-        <h1 class="refcar-login-title">Herramienta Comparativa Refcar</h1>
-        <p class="refcar-login-subtitle">
-            Ingresa con tus credenciales para generar comparativos de seguros y descargar propuestas en PDF.
-        </p>
+        f"""
+        <section class="refcar-login-shell">
+            <div class="refcar-login-card">
+                <div class="refcar-login-chip">Acceso privado Refcar</div>
+                {logo_html}
+                <h1 class="refcar-login-title">Herramienta Comparativa Refcar</h1>
+                <p class="refcar-login-subtitle">
+                    Ingresa con tus credenciales para generar comparativos de seguros y descargar propuestas en PDF.
+                </p>
+            </div>
+        </section>
         """,
         unsafe_allow_html=True,
     )
@@ -174,21 +183,22 @@ def _render_login() -> None:
         st.error(f"Falta configurar `{LOGIN_PASSWORD_ENV}` en Railway.")
         st.stop()
 
-    with st.form("refcar_login_form"):
-        username = st.text_input("Usuario", placeholder="usuario")
-        password = st.text_input("Clave", type="password", placeholder="clave")
-        submitted = st.form_submit_button("Entrar a Refcar", use_container_width=True)
+    form_left, form_center, form_right = st.columns([1, 1.25, 1])
+    with form_center:
+        with st.form("refcar_login_form"):
+            username = st.text_input("Usuario", placeholder="usuario")
+            password = st.text_input("Clave", type="password", placeholder="clave")
+            submitted = st.form_submit_button("Entrar a Refcar", use_container_width=True)
 
-    if submitted:
-        user_ok = hmac.compare_digest(username.strip(), expected_user)
-        password_ok = hmac.compare_digest(password, expected_password)
-        if user_ok and password_ok:
-            st.session_state.refcar_authenticated = True
-            st.rerun()
-        else:
-            st.error("Usuario o clave incorrectos.")
+        if submitted:
+            user_ok = hmac.compare_digest(username.strip(), expected_user)
+            password_ok = hmac.compare_digest(password, expected_password)
+            if user_ok and password_ok:
+                st.session_state.refcar_authenticated = True
+                st.rerun()
+            else:
+                st.error("Usuario o clave incorrectos.")
 
-    st.markdown("</div></div>", unsafe_allow_html=True)
     st.stop()
 
 
