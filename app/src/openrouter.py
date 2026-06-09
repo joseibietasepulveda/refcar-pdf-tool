@@ -79,6 +79,20 @@ class OpenRouterClient:
             return min(model_limit, PREFERRED_ANALYSIS_MAX_TOKENS)
         return DEFAULT_ANALYSIS_MAX_TOKENS
 
+    @staticmethod
+    def _error_text(error_detail) -> str:
+        if isinstance(error_detail, str):
+            return error_detail
+        try:
+            return json.dumps(error_detail, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(error_detail)
+
+    @classmethod
+    def _is_embedded_rate_limit(cls, error_detail) -> bool:
+        text = cls._error_text(error_detail).lower()
+        return "rate_limit_exceeded" in text or '"code": 429' in text or "'code': 429" in text
+
     def _next_analysis_max_tokens(self, current: int) -> int | None:
         """Increase a conservative fallback ceiling if the catalog request was unavailable."""
         model_limit = self._max_completion_tokens.get(self.model, PREFERRED_ANALYSIS_MAX_TOKENS)
@@ -238,10 +252,14 @@ class OpenRouterClient:
 
             if finish_reason == "error" or choice.get("error"):
                 error_detail = choice.get("error") or native_finish_reason or "sin detalle"
-                raise RuntimeError(
+                last_error = RuntimeError(
                     f"OpenRouter devolvió un error dentro de la respuesta en paso '{step_name}': "
-                    f"{error_detail}"
+                    f"{self._error_text(error_detail)}"
                 )
+                if attempt < 3 and self._is_embedded_rate_limit(error_detail):
+                    time.sleep(4 * attempt)
+                    continue
+                raise last_error
 
             if not isinstance(content, str) or not self._is_valid_json_content(content):
                 current_limit = int(payload.get("max_tokens", 0) or 0)
@@ -278,6 +296,11 @@ class OpenRouterClient:
             return content, metrics
 
         if last_error:
+            if "rate_limit_exceeded" in str(last_error).lower():
+                raise RuntimeError(
+                    f"OpenRouter alcanzó el límite temporal de uso en paso '{step_name}'. "
+                    "La app ya reintentó automáticamente; espera unos segundos y vuelve a intentar."
+                ) from last_error
             raise last_error
         raise RuntimeError(f"OpenRouter falló en paso '{step_name}' sin detalle.")
 
