@@ -671,10 +671,12 @@ def main():
         run_clicked = st.button(
             "3) Iniciar Extracción Documental",
             type="primary",
-            disabled=not roles_ok or winner_idx is None,
+            disabled=not roles_ok or winner_idx is None or st.session_state.get("run_status") == "running",
         )
 
         if run_clicked and roles_ok and winner_idx is not None:
+            startup_notice = st.empty()
+            startup_notice.info("Iniciando extracción documental... preparando archivos y conexión con OpenRouter.")
             _clear_generated_pdf_state()
             st.session_state.run_status = "running"
             st.session_state.run_error = ""
@@ -726,6 +728,7 @@ def main():
 
                 num_pdfs = len(st.session_state.saved_paths)
                 total_steps = num_pdfs + 1  # extracción por PDF + análisis final
+                startup_notice.empty()
                 on_step, complete_progress = _create_progress_tracker(total_steps)
 
                 single_extractions = []
