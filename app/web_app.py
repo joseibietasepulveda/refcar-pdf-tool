@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import hmac
 import os
 import tempfile
@@ -55,6 +56,7 @@ REFCAR_LOGO_PATH = Path(__file__).resolve().parent / "static" / "refcar-logo.svg
 LOGIN_USER_ENV = "REFCAR_LOGIN_USER"
 LOGIN_PASSWORD_ENV = "REFCAR_LOGIN_PASSWORD"
 DEFAULT_LOGIN_USER = "felipe_carmona"
+AUTH_QUERY_PARAM = "refcar_auth"
 
 
 def _apply_refcar_theme() -> None:
@@ -195,6 +197,7 @@ def _render_login() -> None:
             password_ok = hmac.compare_digest(password, expected_password)
             if user_ok and password_ok:
                 st.session_state.refcar_authenticated = True
+                st.query_params[AUTH_QUERY_PARAM] = _build_auth_token(expected_user, expected_password)
                 st.rerun()
             else:
                 st.error("Usuario o clave incorrectos.")
@@ -202,9 +205,38 @@ def _render_login() -> None:
     st.stop()
 
 
+def _build_auth_token(username: str, password: str) -> str:
+    secret = password.encode("utf-8")
+    message = f"refcar-login:{username}".encode("utf-8")
+    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+
+def _get_query_auth_token() -> str:
+    raw_token = st.query_params.get(AUTH_QUERY_PARAM, "")
+    if isinstance(raw_token, list):
+        return str(raw_token[0] if raw_token else "")
+    return str(raw_token or "")
+
+
+def _query_auth_is_valid() -> bool:
+    expected_user = os.getenv(LOGIN_USER_ENV, DEFAULT_LOGIN_USER).strip()
+    expected_password = os.getenv(LOGIN_PASSWORD_ENV, "").strip()
+    if not expected_password:
+        return False
+    expected_token = _build_auth_token(expected_user, expected_password)
+    return hmac.compare_digest(_get_query_auth_token(), expected_token)
+
+
+def _clear_query_auth_token() -> None:
+    try:
+        del st.query_params[AUTH_QUERY_PARAM]
+    except KeyError:
+        pass
+
+
 def _require_login() -> None:
     if "refcar_authenticated" not in st.session_state:
-        st.session_state.refcar_authenticated = False
+        st.session_state.refcar_authenticated = _query_auth_is_valid()
     if not st.session_state.refcar_authenticated:
         _render_login()
 
@@ -491,6 +523,7 @@ def main():
             st.caption("Sesión iniciada.")
             if st.button("Cerrar sesión", use_container_width=True):
                 st.session_state.refcar_authenticated = False
+                _clear_query_auth_token()
                 st.rerun()
             st.divider()
             st.header("Configuración")
