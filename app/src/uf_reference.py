@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import os
+import json
+import time
 from datetime import date, datetime
 
 import httpx
+
+from .config import RUNS_DIR
 
 
 class UFReferenceError(Exception):
@@ -13,22 +17,48 @@ class UFReferenceError(Exception):
 
 
 _MINDICADOR_UF_URL = "https://mindicador.cl/api/uf"
+_UF_CACHE_PATH = RUNS_DIR / "uf_reference_cache.json"
+_DEFAULT_TIMEOUT_S = 8.0
+_DEFAULT_RETRIES = 4
 
 
-def fetch_uf_latest_mindicador(timeout_s: float = 12.0) -> tuple[float, str]:
+def fetch_uf_latest_mindicador(
+    timeout_s: float = _DEFAULT_TIMEOUT_S,
+    retries: int = _DEFAULT_RETRIES,
+) -> tuple[float, str]:
     """Obtiene la última serie publicada por mindicador.cl (tercero público).
 
     La UF oficial se publica en el Banco Central de Chile; muchos desarrolladores
     usan este endpoint para consultas de referencia. Para uso formal conviene o bien
     fijar `UF_REFERENCE_CLP` en `.env`, o cargar desde tu propio servicio institucional.
     """
-    try:
-        with httpx.Client(timeout=timeout_s) as client:
-            resp = client.get(_MINDICADOR_UF_URL)
-            resp.raise_for_status()
-            data = resp.json()
-    except (httpx.HTTPError, ValueError) as exc:
-        raise UFReferenceError("no se pudo consultar mindicador.cl") from exc
+    last_exc: Exception | None = None
+    timeout = httpx.Timeout(timeout_s, connect=min(4.0, timeout_s))
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "refcar-pdf-tool/1.0",
+    }
+    for attempt in range(1, max(retries, 1) + 1):
+        try:
+            with httpx.Client(timeout=timeout, headers=headers, follow_redirects=True) as client:
+                resp = client.get(_MINDICADOR_UF_URL)
+                resp.raise_for_status()
+                data = resp.json()
+            uf_ref = _parse_mindicador_uf_payload(data)
+            _write_uf_cache(uf_ref[0], uf_ref[1])
+            return uf_ref
+        except (httpx.HTTPError, ValueError, UFReferenceError) as exc:
+            last_exc = exc
+            if attempt < retries:
+                time.sleep(min(1.5 * attempt, 5.0))
+
+    raise UFReferenceError("no se pudo consultar mindicador.cl tras varios intentos") from last_exc
+
+
+def _parse_mindicador_uf_payload(data: dict) -> tuple[float, str]:
+    """Parsea respuestas de mindicador.cl tolerando pequeñas variaciones."""
+    if not isinstance(data, dict):
+        raise UFReferenceError("Respuesta inválida de mindicador.cl")
     serie = data.get("serie") or []
     if not serie:
         raise UFReferenceError("mindicador.cl devolvió una serie UF vacía")
@@ -43,6 +73,39 @@ def fetch_uf_latest_mindicador(timeout_s: float = 12.0) -> tuple[float, str]:
         raise UFReferenceError("Valor UF inválido en API") from exc
     fecha_str = _iso_date_only(str(fecha))
     return clp_per_uf, fecha_str
+
+
+def _write_uf_cache(clp_per_uf: float, fecha_iso: str) -> None:
+    try:
+        RUNS_DIR.mkdir(parents=True, exist_ok=True)
+        _UF_CACHE_PATH.write_text(
+            json.dumps(
+                {
+                    "clp_per_uf": float(clp_per_uf),
+                    "date": fecha_iso[:10],
+                    "cached_at": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                    "source": _MINDICADOR_UF_URL,
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+
+
+def _read_uf_cache() -> tuple[float | None, str | None]:
+    try:
+        data = json.loads(_UF_CACHE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None, None
+    try:
+        clp = float(data.get("clp_per_uf"))
+    except (TypeError, ValueError):
+        return None, None
+    if clp <= 0:
+        return None, None
+    return clp, str(data.get("date") or date.today().isoformat())[:10]
 
 
 def uf_from_env() -> tuple[float | None, str | None]:
@@ -92,6 +155,9 @@ def resolve_reference_uf(
             env_clp, env_date = uf_from_env()
             if env_clp is not None:
                 return env_clp, env_date or date.today().isoformat()
+            cache_clp, cache_date = _read_uf_cache()
+            if cache_clp is not None:
+                return cache_clp, cache_date or date.today().isoformat()
             raise
 
     env_clp, env_date = uf_from_env()
