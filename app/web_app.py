@@ -105,14 +105,15 @@ def _apply_refcar_theme() -> None:
             color: #FFFFFF;
             font-size: 2.35rem;
             font-weight: 850;
-            letter-spacing: -0.045em;
+            letter-spacing: 0;
         }
         .refcar-login-subtitle {
-            margin: 10px auto 0;
-            max-width: 560px;
+            margin: 12px auto 0;
+            max-width: 640px;
             color: rgba(255, 255, 255, 0.72);
             font-size: 1.03rem;
             line-height: 1.55;
+            text-align: center;
         }
         .refcar-login-chip {
             display: inline-flex;
@@ -137,17 +138,38 @@ def _apply_refcar_theme() -> None:
             border: 0;
             padding: 0;
             background: transparent;
+            max-width: 560px;
+            margin: 0 auto;
         }
         div[data-testid="stForm"] input {
             border-radius: 14px;
         }
-        div[data-testid="stForm"] button {
+        div[data-testid="stForm"] .stFormSubmitButton button {
             border-radius: 999px;
             min-height: 48px;
             background: linear-gradient(90deg, #21B7E8, #91F21B);
             color: #071462;
             font-weight: 850;
             border: 0;
+        }
+        div[data-testid="stForm"] button[aria-label*="password"],
+        div[data-testid="stForm"] button[title*="password"],
+        div[data-testid="stForm"] button[kind="icon"] {
+            min-height: 0;
+            width: 42px;
+            height: 42px;
+            padding: 0;
+            border: 0;
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.78);
+            box-shadow: none;
+        }
+        div[data-testid="stForm"] button[aria-label*="password"]:hover,
+        div[data-testid="stForm"] button[title*="password"]:hover,
+        div[data-testid="stForm"] button[kind="icon"]:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
         }
         </style>
         """,
@@ -183,22 +205,20 @@ def _render_login() -> None:
         st.error(f"Falta configurar `{LOGIN_PASSWORD_ENV}` en Railway.")
         st.stop()
 
-    form_left, form_center, form_right = st.columns([1, 1.25, 1])
-    with form_center:
-        with st.form("refcar_login_form"):
-            username = st.text_input("Usuario", placeholder="usuario")
-            password = st.text_input("Clave", type="password", placeholder="clave")
-            submitted = st.form_submit_button("Entrar a Refcar", use_container_width=True)
+    with st.form("refcar_login_form"):
+        username = st.text_input("Usuario", placeholder="usuario")
+        password = st.text_input("Clave", type="password", placeholder="clave")
+        submitted = st.form_submit_button("Entrar a Refcar", use_container_width=True)
 
-        if submitted:
-            user_ok = hmac.compare_digest(username.strip(), expected_user)
-            password_ok = hmac.compare_digest(password, expected_password)
-            if user_ok and password_ok:
-                st.session_state.refcar_authenticated = True
-                st.query_params[AUTH_QUERY_PARAM] = _build_auth_token(expected_user, expected_password)
-                st.rerun()
-            else:
-                st.error("Usuario o clave incorrectos.")
+    if submitted:
+        user_ok = hmac.compare_digest(username.strip(), expected_user)
+        password_ok = hmac.compare_digest(password, expected_password)
+        if user_ok and password_ok:
+            st.session_state.refcar_authenticated = True
+            st.query_params[AUTH_QUERY_PARAM] = _build_auth_token(expected_user, expected_password)
+            st.rerun()
+        else:
+            st.error("Usuario o clave incorrectos.")
 
     st.stop()
 
