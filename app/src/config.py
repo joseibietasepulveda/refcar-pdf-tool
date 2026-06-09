@@ -31,11 +31,10 @@ SCHEMAS_DIR = BASE_DIR / "schemas"
 SAMPLES_DIR = BASE_DIR / "samples"
 RUNS_DIR = BASE_DIR / "runs"
 
-# Perfiles expuestos al cliente. Los IDs quedan centralizados para poder
-# actualizarlos en un solo lugar si OpenRouter cambia la disponibilidad.
+# Modelo único expuesto al cliente. El ID queda centralizado para poder
+# actualizarlo en un solo lugar si OpenRouter cambia la disponibilidad.
 MODEL_PROFILES = {
     "Estándar": "google/gemini-3.1-flash-lite",
-    "Pro": "google/gemini-3.1-pro-preview",
 }
 DEFAULT_MODEL_PROFILE = "Estándar"
 DEFAULT_PRIMARY_MODEL = MODEL_PROFILES[DEFAULT_MODEL_PROFILE]

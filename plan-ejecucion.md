@@ -149,12 +149,12 @@ Entregables:
 
 Estado parcial implementado:
 
-- la interfaz de cliente expone dos perfiles centralizados en `MODEL_PROFILES`: **Estándar** → `google/gemini-3.1-flash-lite` y **Pro** → `google/gemini-3.1-pro-preview`;
-- el modelo por defecto para produccion es **Estándar**, estable y economico;
+- la interfaz de cliente ya no expone selector de modelos;
+- el modelo unico para produccion es **Estándar** → `google/gemini-3.1-flash-lite`, estable y economico;
 - `OpenRouterClient.fetch_model_prices()` consulta `/models` y el historial registra el costo estimado de la corrida;
 - para evitar JSON cortado, el cliente usa modo JSON cuando el modelo lo soporta, adapta el maximo de salida de `analysis` hasta **65.536 tokens**, reintenta si recibe `finish_reason = "length"` o JSON incompleto y contabiliza el costo de esos intentos;
-- el historial persiste extracciones + analisis, registra `thinking_tokens` y modelo resuelto, y colapsa duplicados exactos heredados de reruns anteriores sin borrar los archivos fuente;
-- sigue pendiente definir una cadena automatica de fallback entre modelos distintos cuando una familia no este disponible.
+- el historial persiste extracciones + analisis internamente, pero la tabla visible queda reducida a id de corrida, fecha y segundos;
+- no se expone cadena automatica de fallback entre modelos distintos en la interfaz final.
 
 Estrategia:
 

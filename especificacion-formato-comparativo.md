@@ -834,14 +834,14 @@ Esta seccion enlaza la especificacion funcional con el codigo vigente tras la ad
   - **Antes de iniciar**, libera el puerto 8501: detecta procesos en escucha con `lsof` y los cierra (`kill`, luego `kill -9` si persisten). Evita quedar colgado si quedó una instancia anterior abierta.
   - Instala dependencias la primera vez; lee `OPENROUTER_API_KEY` desde `MI_OPENROUTER_KEY.txt` si no está en el entorno.
 - **Control de versiones:** repositorio Git en la raíz del proyecto. Rama estable `main`; mejoras en ramas (`mejoras/...`). `.gitignore` excluye claves, `.env` y `app/runs/`.
-- **LLM:** OpenRouter (`httpx`). Perfiles de cliente en `app/src/config.py` (`MODEL_PROFILES`). Clave: `OPENROUTER_API_KEY` en `.env` o `app/MI_OPENROUTER_KEY.txt`.
-  - El selector expone solo **Estándar** → `google/gemini-3.1-flash-lite` y **Pro** → `google/gemini-3.1-pro-preview`.
+- **LLM:** OpenRouter (`httpx`). Modelo unico configurado en `app/src/config.py`. Clave: `OPENROUTER_API_KEY` en `.env` o `app/MI_OPENROUTER_KEY.txt`.
+  - La interfaz no expone selector de modelo; usa **Estándar** → `google/gemini-3.1-flash-lite`.
   - `DEFAULT_PRIMARY_MODEL` es `google/gemini-3.1-flash-lite`: version estable y economica para produccion.
-  - `OpenRouterClient.fetch_model_prices()` consulta `/models` antes de ejecutar el pipeline y obtiene tarifas, parametros soportados y limite de salida publicado para el modelo elegido.
+  - `OpenRouterClient.fetch_model_prices()` consulta `/models` antes de ejecutar el pipeline y obtiene tarifas, parametros soportados y limite de salida publicado para el modelo estándar.
   - Si el modelo soporta `response_format`, las llamadas se envian con modo JSON y `provider.require_parameters = true`.
   - En `analysis`, el cliente usa hasta **65.536 tokens** de salida cuando el modelo lo permite. Si OpenRouter informa `finish_reason = "length"` o devuelve JSON incompleto, el cliente reintenta con mas margen cuando existe capacidad disponible.
-  - Las metricas agregan tokens, tiempo y costo de los reintentos pagados; tambien guardan cantidad de intentos, `finish_reason`, `thinking_tokens` y el modelo resuelto que OpenRouter devuelve.
-  - La aplicacion todavia no implementa una cadena automatica de fallback entre modelos diferentes. Los IDs quedan centralizados en `MODEL_PROFILES` para actualizarlos en un solo lugar.
+  - Las metricas agregan tokens, tiempo y costo de los reintentos pagados; tambien guardan cantidad de intentos, `finish_reason`, `thinking_tokens` y el modelo resuelto que OpenRouter devuelve. La tabla visible de historial muestra solo id de corrida, fecha y segundos.
+  - La aplicacion no expone una cadena automatica de fallback entre modelos diferentes.
 - **Lectura de PDF:** `pdfplumber` (`app/src/pdf_reader.py`): texto plano + **tablas convertidas a Markdown** anexadas al contexto del modelo.
 - **Schemas JSON:** `app/schemas/extraction.schema.json`, `analysis.schema.json`, `final-render.schema.json` (copia sincronizada en `schemas/`).
 

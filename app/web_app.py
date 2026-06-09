@@ -16,9 +16,7 @@ import pandas as pd
 import streamlit as st
 
 from src.config import (
-    DEFAULT_MODEL_PROFILE,
     DEFAULT_PRIMARY_MODEL,
-    MODEL_PROFILES,
     OPENROUTER_API_KEY,
     RUNS_DIR,
 )
@@ -446,16 +444,11 @@ def _build_runs_dataframe(runs: list[dict]) -> pd.DataFrame:
     rows = []
     for run in runs:
         metrics = run.get("metrics", {})
-        validation = run.get("validation", {})
         rows.append(
             {
                 "run_id": run.get("run_id", ""),
                 "fecha": run.get("created_at", ""),
-                "modelo": metrics.get("model") or run.get("model", ""),
-                "modelo_resuelto": ", ".join(metrics.get("resolved_models") or []),
-                "plan_recomendado": run.get("selected_tier", ""),
                 "tiempo_s": metrics.get("total_time_seconds", 0),
-                "schema_ok": validation.get("all_valid", False),
             }
         )
     return pd.DataFrame(rows)
@@ -562,15 +555,7 @@ def main():
             )
             st.session_state.case_mode = case_mode
 
-            st.divider()
-            model_profile = st.radio(
-                "Tipo de análisis",
-                options=list(MODEL_PROFILES),
-                index=list(MODEL_PROFILES).index(DEFAULT_MODEL_PROFILE),
-                horizontal=True,
-            )
-            model = MODEL_PROFILES[model_profile]
-            st.caption(f"Modelo OpenRouter: `{model}`")
+            model = DEFAULT_PRIMARY_MODEL
 
             st.divider()
             st.subheader("UF de referencia")

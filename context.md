@@ -466,13 +466,13 @@ El MVP local ya corre en `app/` con un stack distinto al sugerido arriba:
 
 - **Interfaz:** Streamlit (`app/web_app.py`), flujo directo (upload → editor → PDF). En carga: columnas **Archivo | Rol** y **radio** para ganador (sin Tier duplicado).
 - **PDF:** plantilla HTML/CSS Refcar (`app/templates/comparativo.html`) + WeasyPrint (`app/src/pdf_generator.py`).
-- **IA:** OpenRouter para extraccion y analisis; el render del PDF es 100% codigo (sin tokens). La interfaz expone solo dos perfiles: **Estándar** → `google/gemini-3.1-flash-lite` y **Pro** → `google/gemini-3.1-pro-preview`. Estándar queda seleccionado por defecto.
+- **IA:** OpenRouter para extraccion y analisis; el render del PDF es 100% codigo (sin tokens). La app usa un unico modelo estándar: `google/gemini-3.1-flash-lite`.
 - **Costo por corrida:** antes del pipeline, `OpenRouterClient.fetch_model_prices()` consulta `/models`; las metricas estiman el costo del modelo seleccionado y lo guardan en el historial. Los precios no se hardcodean en documentacion porque pueden cambiar.
 - **Respuestas JSON robustas:** cuando el modelo lo soporta, el cliente usa `response_format: {"type": "json_object"}` y exige un endpoint compatible. Para `analysis`, toma el limite de salida publicado por OpenRouter hasta **65.536 tokens**; si recibe `finish_reason = "length"` o JSON incompleto, reintenta con mas margen disponible. Los reintentos pagados se suman en las metricas.
-- **Auditoria de metricas:** el historial persiste la llamada final de analisis ademas de las extracciones, registra `thinking_tokens` y modelo resuelto por OpenRouter, y prioriza `metrics.model` para mostrar el modelo seleccionado. La tabla web colapsa duplicados exactos heredados de reruns anteriores sin borrar archivos.
+- **Auditoria de metricas:** el historial persiste la llamada final de analisis ademas de las extracciones y registra metricas internas. La tabla web visible muestra solo id de corrida, fecha y segundos.
 - **Registro de renders:** mostrar o descargar un PDF existente no guarda otra corrida. Solo el clic explicito en **Generar PDF** renderiza y registra una nueva version.
-- **UF:** cada corrida consulta `mindicador.cl` automáticamente. Debajo del selector de modelo existe **Ingresar UF manualmente** como respaldo visible si el servicio externo falla.
-- **Fallback de modelos:** aun no existe fallback automatico entre modelos distintos; esa politica queda como endurecimiento posterior. Los IDs vigentes están centralizados en `MODEL_PROFILES`.
+- **UF:** cada corrida consulta `mindicador.cl` automáticamente con reintentos y cache local. En la barra lateral existe **Ingresar UF manualmente** como respaldo visible si el servicio externo falla.
+- **Modelo:** no hay selector de modelo en la interfaz de cliente; `DEFAULT_PRIMARY_MODEL` concentra el ID vigente.
 - **Lanzador macOS:** doble clic en `app/Ejecutar Herramienta Seguros.command` → abre `http://localhost:8501`. Antes de iniciar, libera el puerto 8501 si quedo una instancia anterior colgada.
 - **Regeneracion:** durante una sesion abierta, el usuario puede editar campos y generar nuevos PDFs sin cerrar la terminal ni reiniciar Streamlit. Si hubo cambios de codigo y la vista no se refresca automaticamente, basta con recargar el navegador; reiniciar el lanzador queda como ultimo recurso.
 - **Git:** repositorio en la raiz; rama estable `main`, mejoras en ramas (`mejoras/...`). Claves y corridas locales excluidas via `.gitignore`.
