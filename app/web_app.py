@@ -430,6 +430,18 @@ def _clear_generated_pdf_state() -> None:
         st.session_state.pop(key, None)
 
 
+def _reset_run_status() -> None:
+    st.session_state.run_status = "idle"
+    st.session_state.run_error = ""
+    st.session_state.run_stage = ""
+
+
+def _set_run_failed(stage: str, error: Exception | str) -> None:
+    st.session_state.run_status = "failed"
+    st.session_state.run_stage = stage
+    st.session_state.run_error = str(error)
+
+
 def _build_runs_dataframe(runs: list[dict]) -> pd.DataFrame:
     rows = []
     for run in runs:
@@ -496,6 +508,10 @@ def main():
         st.session_state.analysis = {}
     if "session_metrics" not in st.session_state:
         st.session_state.session_metrics = {}
+    if "uf_ref" not in st.session_state:
+        st.session_state.uf_ref = None
+    if "run_status" not in st.session_state:
+        _reset_run_status()
 
     # Reset button to start over
     if st.session_state.step != "upload":
@@ -504,6 +520,7 @@ def main():
             st.session_state.extractions = []
             st.session_state.resolved_extractions = []
             st.session_state.analysis = {}
+            _reset_run_status()
             _clear_generated_pdf_state()
             st.rerun()
 
@@ -512,6 +529,12 @@ def main():
     # ------------------------------------------------------------------
     if st.session_state.step == "upload":
         st.subheader("1) Cargar PDFs de Entrada")
+        if st.session_state.get("run_status") == "failed" and st.session_state.get("run_error"):
+            stage = st.session_state.get("run_stage") or "corrida"
+            st.warning(
+                f"La corrida anterior se interrumpió en **{stage}**. "
+                f"Detalle: {st.session_state.run_error}"
+            )
         uploaded_files = st.file_uploader(
             "Arrastra y suelta los PDFs aquí (3+ cotizaciones con póliza opcional, o exactamente 4 cotizaciones)",
             type=["pdf"],
@@ -668,6 +691,9 @@ def main():
 
         if run_clicked and roles_ok and winner_idx is not None:
             _clear_generated_pdf_state()
+            st.session_state.run_status = "running"
+            st.session_state.run_error = ""
+            st.session_state.run_stage = "Preparando corrida"
             winner_tier_internal = roles[winner_idx]
             offer_tier_overrides: dict[int, str] = {}
             winner_quote_position = None
@@ -692,63 +718,77 @@ def main():
             session.start_timer()
 
             client = OpenRouterClient(model=model)
-            client.fetch_model_prices()
-
             try:
-                uf_ref = resolve_reference_uf(
-                    manual_clp=uf_manual_clp if uf_manual_clp and uf_manual_clp > 0 else None,
-                    manual_date=uf_manual_date.isoformat() if uf_manual_date else None,
-                    fetch_online=True,
-                )
-            except UFReferenceError as exc:
-                client.close()
-                st.error(
-                    f"No se pudo obtener la UF automáticamente: {exc}. "
-                    "Activa **Ingresar UF manualmente** en la barra lateral e intenta de nuevo."
-                )
-                st.stop()
+                st.session_state.run_stage = "Consultando configuración de modelos"
+                client.fetch_model_prices()
 
-            st.session_state.uf_ref = uf_ref
-
-            num_pdfs = len(st.session_state.saved_paths)
-            total_steps = num_pdfs + 1  # extracción por PDF + análisis final
-            on_step, complete_progress = _create_progress_tracker(total_steps)
-
-            single_extractions = []
-            for i, (path, role) in enumerate(zip(st.session_state.saved_paths, st.session_state.roles)):
-                on_step(f"Extrayendo {path.name}", i + 1, total_steps)
-                from src.pdf_reader import read_pdf
-                pdf_data = read_pdf(path)
-                doc_type = "current_policy" if role == "current_policy" else "quote"
-                from src.prompts import build_extraction_prompt
-                messages = build_extraction_prompt(
-                    pdf_text=pdf_data["text"],
-                    file_name=pdf_data["file_name"],
-                    document_type=doc_type,
-                    document_role=role,
-                )
-                resp_text, call_m = client.chat(messages=messages, step_name=f"extraction_{i+1}")
-                session.add_call(call_m)
+                st.session_state.run_stage = "Obteniendo UF"
                 try:
-                    ext_json = _parse_json_response(resp_text)
-                except Exception:
-                    ext_json = {"error": "Failed to parse JSON", "raw": resp_text[:500]}
-                single_extractions.append(ext_json)
-            st.session_state.resolved_extractions = single_extractions
+                    uf_ref = resolve_reference_uf(
+                        manual_clp=uf_manual_clp if uf_manual_clp and uf_manual_clp > 0 else None,
+                        manual_date=uf_manual_date.isoformat() if uf_manual_date else None,
+                        fetch_online=True,
+                    )
+                except UFReferenceError as exc:
+                    _set_run_failed("uf", exc)
+                    st.error(
+                        f"No se pudo obtener la UF automáticamente: {exc}. "
+                        "Activa **Ingresar UF manualmente** en la barra lateral e intenta de nuevo."
+                    )
+                    st.stop()
 
-            on_step("Analizando caso completo", num_pdfs + 1, total_steps)
-            st.session_state.session_metrics = session.to_dict()
-            _run_analysis_phase(client, session)
-            analysis_ok = not (
-                isinstance(st.session_state.analysis, dict)
-                and st.session_state.analysis.get("error")
-            )
-            complete_progress(
-                "Extracción y análisis completados."
-                if analysis_ok
-                else "Extracción lista; el análisis falló (revisa el mensaje arriba)."
-            )
-            client.close()
+                st.session_state.uf_ref = uf_ref
+
+                num_pdfs = len(st.session_state.saved_paths)
+                total_steps = num_pdfs + 1  # extracción por PDF + análisis final
+                on_step, complete_progress = _create_progress_tracker(total_steps)
+
+                single_extractions = []
+                for i, (path, role) in enumerate(zip(st.session_state.saved_paths, st.session_state.roles)):
+                    st.session_state.run_stage = f"Extrayendo {path.name}"
+                    on_step(f"Extrayendo {path.name}", i + 1, total_steps)
+                    from src.pdf_reader import read_pdf
+                    pdf_data = read_pdf(path)
+                    doc_type = "current_policy" if role == "current_policy" else "quote"
+                    from src.prompts import build_extraction_prompt
+                    messages = build_extraction_prompt(
+                        pdf_text=pdf_data["text"],
+                        file_name=pdf_data["file_name"],
+                        document_type=doc_type,
+                        document_role=role,
+                    )
+                    resp_text, call_m = client.chat(messages=messages, step_name=f"extraction_{i+1}")
+                    session.add_call(call_m)
+                    try:
+                        ext_json = _parse_json_response(resp_text)
+                    except Exception:
+                        ext_json = {"error": "Failed to parse JSON", "raw": resp_text[:500]}
+                    single_extractions.append(ext_json)
+                    st.session_state.resolved_extractions = single_extractions
+
+                st.session_state.run_stage = "Analizando caso completo"
+                on_step("Analizando caso completo", num_pdfs + 1, total_steps)
+                st.session_state.session_metrics = session.to_dict()
+                _run_analysis_phase(client, session)
+                analysis_ok = not (
+                    isinstance(st.session_state.analysis, dict)
+                    and st.session_state.analysis.get("error")
+                )
+                st.session_state.run_status = "completed" if analysis_ok else "failed"
+                complete_progress(
+                    "Extracción y análisis completados."
+                    if analysis_ok
+                    else "Extracción lista; el análisis falló (puedes reintentar abajo)."
+                )
+            except Exception as exc:
+                _set_run_failed(st.session_state.get("run_stage") or "corrida", exc)
+                st.session_state.analysis = {
+                    "error": "run_failed",
+                    "message": str(exc),
+                }
+                st.session_state.step = "editor"
+            finally:
+                client.close()
             st.rerun()
 
     # ------------------------------------------------------------------
@@ -773,6 +813,14 @@ def main():
             if isinstance(analysis, dict) and analysis.get("raw"):
                 with st.expander("Detalle del error"):
                     st.code(str(analysis.get("raw", analysis))[:2000])
+            if st.session_state.resolved_extractions:
+                st.info(
+                    "Las extracciones de los PDFs quedaron guardadas en esta sesión. "
+                    "Puedes reintentar solo el análisis final sin volver a cargar los archivos."
+                )
+                if st.button("Reintentar análisis", type="primary"):
+                    _retry_analysis_from_current_extractions()
+                    st.rerun()
             st.stop()
 
         # 1. Metadatos y Asegurado
@@ -1070,6 +1118,29 @@ def main():
     _show_run_history()
 
 
+def _retry_analysis_from_current_extractions() -> None:
+    model = str(st.session_state.session_metrics.get("model") or DEFAULT_PRIMARY_MODEL)
+    session = SessionMetrics.from_dict(st.session_state.session_metrics)
+    session.model = model
+    client = OpenRouterClient(model=model)
+    try:
+        st.session_state.run_status = "running"
+        st.session_state.run_error = ""
+        st.session_state.run_stage = "Reintentando análisis"
+        with st.spinner("Reintentando análisis final con las extracciones ya realizadas..."):
+            client.fetch_model_prices()
+            _run_analysis_phase(client, session)
+    except Exception as exc:
+        _set_run_failed("analysis_retry", exc)
+        st.session_state.analysis = {
+            "error": "openrouter_failed",
+            "message": str(exc),
+        }
+        st.session_state.step = "editor"
+    finally:
+        client.close()
+
+
 def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
     # Inyectar UF
     uf_clp = None
@@ -1099,6 +1170,7 @@ def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
         )
     except RuntimeError as exc:
         st.error(str(exc))
+        _set_run_failed("analysis", exc)
         st.session_state.analysis = {
             "error": "openrouter_failed",
             "message": str(exc),
@@ -1123,6 +1195,11 @@ def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
         apply_canonical_uf(analysis, st.session_state.uf_ref[0], st.session_state.uf_ref[1])
 
     st.session_state.analysis = analysis
+    st.session_state.run_status = (
+        "failed"
+        if isinstance(analysis, dict) and analysis.get("error")
+        else "completed"
+    )
     st.session_state.step = "editor"
 
 
