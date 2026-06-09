@@ -50,7 +50,7 @@ LEGACY_CASE_MODE_LABELS = {
 }
 QUOTE_ROLE_KEYS = [key for key in ROLE_KEYS if key != "current_policy"]
 QUOTE_ROLE_LABELS = [ROLE_DISPLAY[key] for key in QUOTE_ROLE_KEYS]
-REFCAR_LOGO_PATH = Path(__file__).resolve().parent / "static" / "refcar-logo.svg"
+REFCAR_LOGO_PATH = Path(__file__).resolve().parent / "static" / "refcar-logo.jpg"
 LOGIN_USER_ENV = "REFCAR_LOGIN_USER"
 LOGIN_PASSWORD_ENV = "REFCAR_LOGIN_PASSWORD"
 DEFAULT_LOGIN_USER = "felipe_carmona"
@@ -161,7 +161,7 @@ def _render_login() -> None:
     logo_html = ""
     if REFCAR_LOGO_PATH.is_file():
         logo_b64 = base64.b64encode(REFCAR_LOGO_PATH.read_bytes()).decode("ascii")
-        logo_html = f'<img class="refcar-login-logo" src="data:image/svg+xml;base64,{logo_b64}" alt="Refcar">'
+        logo_html = f'<img class="refcar-login-logo" src="data:image/jpeg;base64,{logo_b64}" alt="Refcar">'
 
     st.markdown(
         f"""
