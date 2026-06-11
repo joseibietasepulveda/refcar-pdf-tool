@@ -823,17 +823,19 @@ La etiqueta comercial de columna (badge) se deriva del **rol** en carga, no de u
 
 ## 9. Implementacion actual en el repositorio (`app/`)
 
-Esta seccion enlaza la especificacion funcional con el codigo vigente tras la adaptacion **plantilla Refcar** (mayo 2026). Referencia visual del cliente: `PLANTILLA_BASE_Detalle_Comparativo_Refcar.pdf`.
+Esta seccion enlaza la especificacion funcional con el codigo vigente tras la adaptacion **plantilla Refcar** y el despliegue Railway (junio 2026). Referencia visual del cliente: `PLANTILLA_BASE_Detalle_Comparativo_Refcar.pdf`.
 
 ### 9.1 Stack y ejecucion
 
 - **Lenguaje:** Python 3.
-- **Interfaz local:** Streamlit (`app/web_app.py`) con flujo directo (ver 9.2.1).
+- **Interfaz:** Streamlit (`app/web_app.py`) con flujo directo (ver 9.2.1), usable localmente y desplegada en Railway.
+- **Login:** pantalla Refcar con logo corporativo; credenciales por `REFCAR_LOGIN_USER` y `REFCAR_LOGIN_PASSWORD`; sesion Streamlit con token firmado en URL para reconexiones.
 - **Lanzador macOS:** `app/Ejecutar Herramienta Seguros.command`.
   - Arranca Streamlit en `http://localhost:8501` (`--server.port 8501`).
   - **Antes de iniciar**, libera el puerto 8501: detecta procesos en escucha con `lsof` y los cierra (`kill`, luego `kill -9` si persisten). Evita quedar colgado si quedó una instancia anterior abierta.
   - Instala dependencias la primera vez; lee `OPENROUTER_API_KEY` desde `MI_OPENROUTER_KEY.txt` si no está en el entorno.
-- **Control de versiones:** repositorio Git en la raíz del proyecto. Rama estable `main`; mejoras en ramas (`mejoras/...`). `.gitignore` excluye claves, `.env` y `app/runs/`.
+- **Control de versiones/despliegue:** repositorio Git en la raíz del proyecto, conectado a GitHub/Railway. Rama estable `main`. `.gitignore` excluye claves, `.env`, `app/runs/` y archivos sensibles.
+- **Railway:** `Dockerfile` en la raiz + `railway.json`; el contenedor usa `$PORT` y variables de entorno del servicio.
 - **LLM:** OpenRouter (`httpx`). Modelo unico configurado en `app/src/config.py`. Clave: `OPENROUTER_API_KEY` en `.env` o `app/MI_OPENROUTER_KEY.txt`.
   - La interfaz no expone selector de modelo; usa **Estándar** → `google/gemini-3.1-flash-lite`.
   - `DEFAULT_PRIMARY_MODEL` es `google/gemini-3.1-flash-lite`: version estable y economica para produccion.
@@ -880,7 +882,7 @@ flowchart LR
 
 | Fase | Paso | Que hace el usuario |
 |------|------|---------------------|
-| 1 | `upload` | Elige modo: **Póliza actual + cotizaciones** o **4 cotizaciones sin póliza actual**. Sube PDFs, asigna rol y ganador (el rol define tambien la etiqueta comercial de columna) y elige perfil **Estándar** o **Pro**. La UF se consulta automáticamente; el ingreso manual queda como respaldo desplegable. Boton **Iniciar Extraccion Documental**. |
+| 1 | `upload` | Elige modo: **Póliza actual + cotizaciones** o **4 cotizaciones sin póliza actual**. Sube PDFs, asigna rol y ganador (el rol define tambien la etiqueta comercial de columna). La app usa el modelo estándar fijo. La UF se consulta automáticamente con reintentos/cache; el ingreso manual queda como respaldo desplegable. Boton **Iniciar Extraccion Documental** con estado inmediato de carga. |
 | 2 | `editor` | Formulario por expanders: Asegurado/UF, Tu Seguro Hoy (si aplica), ofertas (sin selector Tier), Recomendacion. Edita cualquier campo del JSON de analisis. |
 | 3 | (dentro de `editor`) | Boton **Generar PDF**: render local con WeasyPrint **sin nuevas llamadas al LLM**. Descarga inmediata. |
 
@@ -896,9 +898,11 @@ flowchart LR
 Prioridad (`resolve_reference_uf`):
 
 1. Manual en sidebar Streamlit si el usuario activa **Ingresar UF manualmente**.
-2. Consulta automática a `mindicador.cl`.
-3. `UF_REFERENCE_CLP` / `UF_REFERENCE_DATE` en `.env` como respaldo si falla la consulta.
-4. Inferencia desde PDFs (menos estable).
+2. Consulta automática a `https://mindicador.cl/api/uf` con `timeout`, `User-Agent`, reintentos y backoff corto.
+3. Cache local (`app/runs/uf_reference_cache.json`) con la ultima UF valida obtenida.
+4. `UF_REFERENCE_CLP` / `UF_REFERENCE_DATE` en `.env` como respaldo operativo.
+
+Si todas las fuentes automaticas fallan, la interfaz muestra el error y pide activar **Ingresar UF manualmente**. No se intenta inferir la UF desde PDFs para produccion porque es menos estable y puede mezclar valores historicos de las aseguradoras.
 
 ### 9.4 Plantilla PDF Refcar (`comparativo.html`)
 
@@ -932,7 +936,8 @@ Prioridad (`resolve_reference_uf`):
 ### 9.5 Persistencia y metricas
 
 - Corridas en `app/runs/` (`run_store.py`): extracciones, analisis, metricas, ruta del PDF generado.
-- El historial web muestra el modelo tomado de `metrics.model`, incluye el analisis final en los totales y colapsa duplicados exactos generados por reruns anteriores de Streamlit sin borrar los JSON historicos.
+- El historial web visible muestra solo `run_id`, `fecha` y `tiempo_s`. Tokens, costo, modelo resuelto y detalles de intentos quedan persistidos internamente en los JSON de corrida, pero no se exponen en la tabla del cliente.
+- Si la extraccion ya existe y falla el analisis, la app conserva los archivos intermedios y permite reintentar el paso de analisis sin volver a cargar PDFs ni rehacer toda la extraccion.
 - Un PDF solo se renderiza y registra al pulsar explicitamente **Generar PDF**. Mostrar o descargar un PDF ya generado no crea una corrida nueva.
 - Boton volver a cargar PDFs reinicia el flujo sin recargar la pagina completa.
 - Dentro de una misma sesion Streamlit, el usuario puede editar campos y pulsar **Generar PDF** cuantas veces necesite; cada render toma los valores actuales del editor y no requiere cerrar la terminal.
@@ -954,14 +959,18 @@ Prioridad (`resolve_reference_uf`):
 | `app/src/prompts.py` | Coberturas Refcar incluida `rc_exceso`; busqueda 11 cuotas; `commercial_tier` alineado a `document_role` |
 | `app/templates/comparativo.html` | Layout landscape Refcar; tipografia, espaciado, colores por posicion, tabla sin filas fantasma, editorial completo; fila RC en Exceso; equivalencias UF dinamicas; sin linea Ejecutiva en subcabecera |
 | `app/src/pdf_generator.py` | Mapeo 3/4 columnas, `column_theme`, orden por `position`, cuotas base **11 cuotas**, RC en exceso, pie editable y calculo CLP para `0 / 3 / 5 / 10 UF` |
-| `app/web_app.py` | Flujo directo; perfiles **Estándar** / **Pro**; UF automática con respaldo manual; carga con **Rol** + **radio ganador** (sin Tier); editor con RC en Exceso y pie del corredor; generar PDF reutilizable en la misma sesion |
+| `app/web_app.py` | Login Refcar; flujo directo; modelo estándar fijo; UF automática resiliente con respaldo manual; carga con **Rol** + **radio ganador** (sin Tier); estado inmediato al iniciar extraccion; reintento de analisis; editor con RC en Exceso y pie del corredor; generar PDF reutilizable en la misma sesion |
 | `app/Ejecutar Herramienta Seguros.command` | Lanzador macOS; libera puerto 8501 antes de Streamlit |
+| `Dockerfile` / `railway.json` | Despliegue Railway desde GitHub, con puerto tomado de `$PORT` y dependencias de sistema para WeasyPrint |
 | `.gitignore` (raiz) | Excluye claves, `.env`, `app/runs/`, entornos virtuales |
 
-### 9.8 Proyeccion de despliegue web (pendiente)
+### 9.8 Despliegue web Railway
 
-- Destino previsto para la version web del primer cliente: Vercel.
-- `OPENROUTER_API_KEY` debe configurarse como variable de entorno exclusiva del backend y nunca quedar incluida en codigo cliente.
+- Destino de la primera entrega: Railway conectado al repositorio GitHub `joseibietasepulveda/refcar-pdf-tool`.
+- El servicio usa el `Dockerfile` de la raiz y respeta el puerto que Railway entrega en `$PORT`.
+- `OPENROUTER_API_KEY` debe configurarse como variable de entorno exclusiva del backend y nunca quedar incluida en codigo ni en el navegador.
+- Credenciales de login: `REFCAR_LOGIN_USER` y `REFCAR_LOGIN_PASSWORD` como variables de entorno. El usuario default local es `felipe_carmona`; la clave productiva debe vivir solo en Railway.
+- Opcionales operativos: `UF_REFERENCE_CLP` y `UF_REFERENCE_DATE` para respaldo manual de UF si `mindicador.cl` deja de responder.
 - Supuesto inicial de consumo: unas **100 corridas por mes**, con **USD 20** cargados en OpenRouter y revision periodica manual del saldo. La referencia historica de cerca de **USD 0,02 por corrida** debe recalibrarse con registros nuevos: el historial anterior omitía la llamada final de analisis.
-- En la primera entrega no se considera necesario imponer un limite interno de corridas, pero debe mantenerse el historial de costos para detectar desvios.
-- El MVP vigente usa Streamlit + WeasyPrint y requiere adaptacion antes del despliegue: Vercel no sustituye directamente el proceso local persistente de Python.
+- En la primera entrega no se considera necesario imponer un limite interno de corridas, pero se mantienen metricas internas de costo para detectar desvios.
+- No se deben subir PDFs reales, `.env`, `app/runs/` ni archivos de ejemplo sensibles al repositorio.

@@ -134,7 +134,7 @@ Tareas:
 
 Decision recomendada:
 
-- mantener el login simple para el MVP: usuario y password administrados por base de datos local.
+- mantener el login simple para el MVP: usuario y password administrados por variables de entorno del servicio (`REFCAR_LOGIN_USER`, `REFCAR_LOGIN_PASSWORD`) y sesion en Streamlit.
 
 ## Fase 3. Capa de agentes y comparacion de modelos
 
@@ -149,11 +149,15 @@ Entregables:
 
 Estado parcial implementado:
 
+- login Refcar de un usuario, con credenciales por variables de entorno y token firmado en URL para resistir reconexiones;
+- despliegue preparado para Railway con `Dockerfile` en la raiz, `railway.json` y secrets fuera del repositorio;
 - la interfaz de cliente ya no expone selector de modelos;
 - el modelo unico para produccion es **Estándar** → `google/gemini-3.1-flash-lite`, estable y economico;
 - `OpenRouterClient.fetch_model_prices()` consulta `/models` y el historial registra el costo estimado de la corrida;
 - para evitar JSON cortado, el cliente usa modo JSON cuando el modelo lo soporta, adapta el maximo de salida de `analysis` hasta **65.536 tokens**, reintenta si recibe `finish_reason = "length"` o JSON incompleto y contabiliza el costo de esos intentos;
 - el historial persiste extracciones + analisis internamente, pero la tabla visible queda reducida a id de corrida, fecha y segundos;
+- la UF se consulta con reintentos contra `mindicador.cl/api/uf`, cache local y respaldo manual visible en sidebar;
+- el boton de extraccion muestra estado inmediato y el flujo permite reintentar analisis si ya existen extracciones;
 - no se expone cadena automatica de fallback entre modelos distintos en la interfaz final.
 
 Estrategia:
@@ -216,13 +220,14 @@ Cambios esperables:
 
 Criterio inicial de despliegue para el primer cliente:
 
-- usar Vercel como destino de la version web;
+- usar Railway como destino de la version web Streamlit + WeasyPrint;
 - guardar `OPENROUTER_API_KEY` como variable de entorno exclusiva del backend, sin exponerla al frontend;
+- guardar `REFCAR_LOGIN_USER` y `REFCAR_LOGIN_PASSWORD` como variables de entorno del servicio;
 - comenzar sin limite interno de corridas: el uso esperado es de unas **100 corridas por mes**. El costo historico observado rondaba **USD 0,02 por corrida**, pero debe recalibrarse con registros nuevos porque antes no incluia la llamada final de analisis;
 - cargar inicialmente **USD 20** en OpenRouter y revisar el saldo de forma periodica;
 - mantener las metricas de costo por corrida para detectar cambios de precio o consumo antes de ajustar la politica.
 
-Nota tecnica: el MVP Streamlit + WeasyPrint vigente no se despliega en Vercel sin adaptacion. La migracion debe separar la interfaz web del procesamiento Python o mover el pipeline a un servicio compatible con tareas de mayor duracion.
+Nota tecnica: Vercel no era buen destino directo para este MVP porque Streamlit + WeasyPrint necesita un proceso Python persistente y dependencias de sistema. Railway queda como camino simple para la primera entrega; si mas adelante se requiere escalar, conviene separar frontend, workers, storage y auth formal.
 
 ## 5. Stack sugerido
 
@@ -280,7 +285,9 @@ Esto puede ser mejor si los PDFs vienen complejos, porque Python tiene mejor eco
 - `Riesgo`: PDFs escaneados o con mala calidad.
   - `Mitigacion`: OCR fallback y cola de revision manual.
 - `Riesgo`: costo de tokens sube mucho.
-  - `Mitigacion`: parser deterministico primero, modelo pequeno despues, modelo caro solo por excepcion.
+  - `Mitigacion`: modelo estandar economico por defecto, historial interno de costo, parser deterministico/postproceso donde aplique y monitoreo de creditos OpenRouter.
+- `Riesgo`: runtime gratuito o trial de hosting se quede corto.
+  - `Mitigacion`: usar Railway con variables de entorno, monitorear uso y pasar a plan pagado si el cliente queda usando la app de forma estable.
 - `Riesgo`: inconsistencia del resultado final.
   - `Mitigacion`: template fijo en codigo y validacion por schema.
 - `Riesgo`: exceso de correcciones manuales.
@@ -315,19 +322,23 @@ Con eso podemos construir:
 - el template de salida;
 - la primera version del flujo local.
 
-## 10. Estado actual vs plan (mayo 2026)
+## 10. Estado actual vs plan (junio 2026)
 
-El repositorio ya implementa un MVP local distinto al stack sugerido en la seccion 5, pero alineado a los principios de producto:
+El repositorio ya implementa una version Streamlit desplegable en Railway, distinta al stack sugerido en la seccion 5, pero alineada a los principios de producto:
 
 | Plan original | Implementado hoy |
 |---------------|------------------|
-| Login | Pendiente (Streamlit sin auth) |
+| Login | Refcar login con usuario/clave por variables de entorno y token firmado en URL |
 | Upload 3 PDFs + poliza | Streamlit: min. 3 cotizaciones, poliza opcional; modo alternativo de 4 cotizaciones sin poliza |
 | Marcar recomendado | **Radio** de ganador unico entre cotizaciones |
 | Rol / tier comercial | Solo **Rol** en carga; el rol define badge PDF (`offer_tier_overrides`) |
 | Parser deterministico | LLM + reglas post-extraccion (HDI 11 cuotas, UF canonica) |
 | Template PDF en codigo | `comparativo.html` + WeasyPrint |
 | Editor manual | Expanders por seccion; sin selector Tier por oferta |
+| Despliegue | Railway + Dockerfile raiz + `railway.json`; secrets en variables de entorno |
+| Modelo | Unico estándar: `google/gemini-3.1-flash-lite`, sin selector visible |
+| Historial visible | Solo id de corrida, fecha y segundos; costos/tokens quedan internos |
+| UF | Consulta `mindicador.cl/api/uf` con reintentos, cache y fallback manual |
 | 11 cuotas | Prompts + PDF con **Cuotas base: 11 cuotas**; busqueda explicita en extraccion |
 | RC en exceso | Campo `rc_exceso` separado de RC base en extraccion, analisis, editor y PDF |
 | Equivalencias UF | Referencias `0 / 3 / 5 / 10 UF` calculadas dinamicamente con la UF canonica de cada corrida |

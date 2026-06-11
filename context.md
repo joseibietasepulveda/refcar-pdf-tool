@@ -6,7 +6,7 @@ Herramienta de armado de propuestas de seguros automotrices.
 
 ## Resumen ejecutivo
 
-Se necesita una herramienta local que reduzca trabajo manual en la transformacion de tres PDFs de cotizacion de aseguradoras, mas la poliza actual del cliente, en un unico PDF comercial y consistente para enviar por WhatsApp al cliente final.
+Se necesita una herramienta web sencilla que reduzca trabajo manual en la transformacion de PDFs de cotizacion de aseguradoras, con poliza actual opcional, en un unico PDF comercial y consistente para enviar por WhatsApp al cliente final.
 
 Hoy el proceso depende de copiar PDFs a Claude o ChatGPT para que "rearmen" el contenido en un formato deseado. Eso genera tres problemas:
 
@@ -32,11 +32,10 @@ Problemas concretos del flujo actual:
 
 ## Objetivo del producto
 
-Crear un MVP local que permita:
+Crear un MVP web operativo que permita:
 
 - autenticarse;
-- subir tres PDFs de planes (`inicial`, `medio`, `pro`);
-- subir la poliza actual del cliente;
+- subir tres PDFs de cotizaciones mas una poliza actual opcional, o usar el modo de cuatro cotizaciones sin poliza;
 - seleccionar el plan recomendado (una sola cotizacion ganadora);
 - generar automaticamente un PDF final con formato fijo;
 - editar manualmente el resultado antes de descargarlo.
@@ -55,7 +54,7 @@ Reglas de comparacion ya implementadas en el MVP:
 - bajar al minimo el uso de tokens;
 - aumentar consistencia del PDF final;
 - facilitar correcciones manuales sin rehacer todo el documento;
-- sentar base tecnica para una futura version web.
+- dejar la herramienta lista para entregar al cliente en Railway.
 
 ## No objetivos del MVP
 
@@ -153,6 +152,7 @@ Esta separacion reduce dependencia de prompts largos, mejora la consistencia y d
 ### Requerimientos MVP
 
 - login;
+- login Refcar de un usuario administrado por variables de entorno;
 - pantalla de carga de cotizaciones (minimo 3) y poliza actual opcional, mas modo dedicado de 4 cotizaciones sin poliza;
 - asignación de **rol** por PDF (Básico / Equilibrado / Pro / Póliza actual);
 - selector de **una** cotizacion ganadora (radio);
@@ -160,16 +160,16 @@ Esta separacion reduce dependencia de prompts largos, mejora la consistencia y d
 - preview del resultado;
 - editor manual;
 - descarga del PDF;
-- persistencia basica de archivos y resultados.
+- persistencia basica de archivos, resultados y metricas internas;
+- historial visible reducido a id de corrida, fecha y segundos.
 
 ### Requerimientos posteriores
 
-- historial de propuestas;
+- historial comercial de propuestas;
 - versionado de template;
 - scoring de confianza;
 - comparacion entre estrategias de parsing;
-- integracion web;
-- multiusuario;
+- auth formal multiusuario;
 - integracion con WhatsApp.
 
 ## Requerimientos no funcionales
@@ -460,22 +460,25 @@ Agregar evaluacion de modelos/agentes y fallback inteligente.
 
 Endurecer la herramienta y prepararla para version web.
 
-## Estado actual de implementacion (mayo 2026)
+## Estado actual de implementacion (junio 2026)
 
-El MVP local ya corre en `app/` con un stack distinto al sugerido arriba:
+La version entregable corre en `app/`, puede usarse localmente y esta preparada para Railway con Docker:
 
 - **Interfaz:** Streamlit (`app/web_app.py`), flujo directo (upload → editor → PDF). En carga: columnas **Archivo | Rol** y **radio** para ganador (sin Tier duplicado).
+- **Login Refcar:** pantalla visual de acceso con logo corporativo. Usuario por `REFCAR_LOGIN_USER` (default `felipe_carmona`) y clave por `REFCAR_LOGIN_PASSWORD`. La sesion usa estado de Streamlit y un token firmado en URL para resistir reconexiones del runtime.
 - **PDF:** plantilla HTML/CSS Refcar (`app/templates/comparativo.html`) + WeasyPrint (`app/src/pdf_generator.py`).
 - **IA:** OpenRouter para extraccion y analisis; el render del PDF es 100% codigo (sin tokens). La app usa un unico modelo estándar: `google/gemini-3.1-flash-lite`.
-- **Costo por corrida:** antes del pipeline, `OpenRouterClient.fetch_model_prices()` consulta `/models`; las metricas estiman el costo del modelo seleccionado y lo guardan en el historial. Los precios no se hardcodean en documentacion porque pueden cambiar.
+- **Despliegue:** Railway desde GitHub con `Dockerfile` en la raiz y `railway.json`. Secrets como `OPENROUTER_API_KEY` y credenciales de login viven en variables de entorno del servicio.
+- **Costo por corrida:** antes del pipeline, `OpenRouterClient.fetch_model_prices()` consulta `/models`; las metricas internas estiman el costo y lo guardan en el JSON de corrida. La tabla visible al cliente no muestra tokens ni costo.
 - **Respuestas JSON robustas:** cuando el modelo lo soporta, el cliente usa `response_format: {"type": "json_object"}` y exige un endpoint compatible. Para `analysis`, toma el limite de salida publicado por OpenRouter hasta **65.536 tokens**; si recibe `finish_reason = "length"` o JSON incompleto, reintenta con mas margen disponible. Los reintentos pagados se suman en las metricas.
 - **Auditoria de metricas:** el historial persiste la llamada final de analisis ademas de las extracciones y registra metricas internas. La tabla web visible muestra solo id de corrida, fecha y segundos.
+- **Resiliencia de corrida:** al pulsar **Iniciar Extraccion Documental** aparece estado inmediato para evitar dobles clics por impaciencia. Si ya existen extracciones y falla el analisis, la app permite reintentar analisis sin volver a pagar toda la extraccion.
 - **Registro de renders:** mostrar o descargar un PDF existente no guarda otra corrida. Solo el clic explicito en **Generar PDF** renderiza y registra una nueva version.
 - **UF:** cada corrida consulta `mindicador.cl` automáticamente con reintentos y cache local. En la barra lateral existe **Ingresar UF manualmente** como respaldo visible si el servicio externo falla.
 - **Modelo:** no hay selector de modelo en la interfaz de cliente; `DEFAULT_PRIMARY_MODEL` concentra el ID vigente.
 - **Lanzador macOS:** doble clic en `app/Ejecutar Herramienta Seguros.command` → abre `http://localhost:8501`. Antes de iniciar, libera el puerto 8501 si quedo una instancia anterior colgada.
 - **Regeneracion:** durante una sesion abierta, el usuario puede editar campos y generar nuevos PDFs sin cerrar la terminal ni reiniciar Streamlit. Si hubo cambios de codigo y la vista no se refresca automaticamente, basta con recargar el navegador; reiniciar el lanzador queda como ultimo recurso.
-- **Git:** repositorio en la raiz; rama estable `main`, mejoras en ramas (`mejoras/...`). Claves y corridas locales excluidas via `.gitignore`.
+- **Git:** repositorio en la raiz conectado a GitHub/Railway; rama estable `main`. Claves, `.env`, corridas locales y PDFs de trabajo quedan excluidos via `.gitignore`.
 
 ### PDF comparativo Refcar (ultima iteracion visual)
 
@@ -502,15 +505,15 @@ El MVP se considera exitoso si:
 - permite subir cotizaciones con poliza actual opcional, o usar el modo dedicado de cuatro cotizaciones sin poliza;
 - genera un PDF final visualmente consistente;
 - requiere menos correcciones que el flujo actual;
-- usa pocos o cero tokens en la mayoria de los casos;
+- usa tokens solo en extraccion/analisis y nunca para renderizar el PDF;
 - deja editar y descargar sin romper el formato.
 
 ## Preguntas abiertas
 
-- que campos exactos deben aparecer siempre en el PDF final;
+- que campos exactos deben aparecer siempre en futuras versiones del PDF final;
 - si hay una o varias plantillas de salida;
 - si la recomendacion debe ser manual, automatica o mixta;
-- si el login sera de un solo usuario o varios desde el MVP;
+- si se requerira auth formal multiusuario o si basta el login interno de Refcar;
 - cuanta variacion existe entre aseguradoras;
 - si los PDFs tienen texto seleccionable o necesitan OCR.
 
