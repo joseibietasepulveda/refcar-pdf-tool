@@ -4,8 +4,10 @@ import base64
 import hashlib
 import hmac
 import os
-import tempfile
 import json
+import re
+import shutil
+import uuid
 from datetime import date
 from pathlib import Path
 
@@ -55,6 +57,8 @@ LOGIN_USER_ENV = "REFCAR_LOGIN_USER"
 LOGIN_PASSWORD_ENV = "REFCAR_LOGIN_PASSWORD"
 DEFAULT_LOGIN_USER = "felipe_carmona"
 AUTH_QUERY_PARAM = "refcar_auth"
+DRAFT_QUERY_PARAM = "refcar_draft"
+DRAFTS_DIR = RUNS_DIR / "drafts"
 
 
 def _apply_refcar_theme() -> None:
@@ -229,11 +233,15 @@ def _build_auth_token(username: str, password: str) -> str:
     return hmac.new(secret, message, hashlib.sha256).hexdigest()
 
 
-def _get_query_auth_token() -> str:
-    raw_token = st.query_params.get(AUTH_QUERY_PARAM, "")
+def _get_query_param_value(name: str) -> str:
+    raw_token = st.query_params.get(name, "")
     if isinstance(raw_token, list):
         return str(raw_token[0] if raw_token else "")
     return str(raw_token or "")
+
+
+def _get_query_auth_token() -> str:
+    return _get_query_param_value(AUTH_QUERY_PARAM)
 
 
 def _query_auth_is_valid() -> bool:
@@ -248,6 +256,13 @@ def _query_auth_is_valid() -> bool:
 def _clear_query_auth_token() -> None:
     try:
         del st.query_params[AUTH_QUERY_PARAM]
+    except KeyError:
+        pass
+
+
+def _clear_query_draft_token() -> None:
+    try:
+        del st.query_params[DRAFT_QUERY_PARAM]
     except KeyError:
         pass
 
@@ -412,14 +427,234 @@ def _prepare_analysis_for_editor(analysis: dict) -> bool:
     return True
 
 
-def _save_uploaded_files(uploaded_files) -> list[Path]:
-    temp_dir = Path(tempfile.mkdtemp(prefix="seguros_upload_"))
-    paths = []
-    for item in uploaded_files:
-        out_path = temp_dir / item.name
-        out_path.write_bytes(item.read())
-        paths.append(out_path)
-    return paths
+def _is_valid_draft_id(draft_id: str) -> bool:
+    return bool(re.fullmatch(r"[a-f0-9]{32}", str(draft_id or "")))
+
+
+def _draft_dir(draft_id: str) -> Path:
+    if not _is_valid_draft_id(draft_id):
+        raise ValueError("draft_id inválido")
+    return DRAFTS_DIR / draft_id
+
+
+def _draft_state_path(draft_id: str) -> Path:
+    return _draft_dir(draft_id) / "draft_state.json"
+
+
+def _safe_upload_name(index: int, original_name: str) -> str:
+    original = Path(original_name or f"documento_{index + 1}.pdf").name
+    stem = Path(original).stem or f"documento_{index + 1}"
+    clean_stem = re.sub(r"[^A-Za-z0-9._ -]+", "_", stem).strip(" ._")
+    if not clean_stem:
+        clean_stem = f"documento_{index + 1}"
+    return f"{index + 1:02d}_{clean_stem}.pdf"
+
+
+def _uploaded_payload(uploaded_files) -> list[dict]:
+    payload = []
+    for idx, item in enumerate(uploaded_files):
+        data = item.getvalue() if hasattr(item, "getvalue") else item.read()
+        if hasattr(item, "seek"):
+            item.seek(0)
+        payload.append(
+            {
+                "name": item.name,
+                "safe_name": _safe_upload_name(idx, item.name),
+                "size": len(data),
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "data": bytes(data),
+            }
+        )
+    return payload
+
+
+def _payload_signature(payload: list[dict]) -> str:
+    comparable = [
+        {"name": item["name"], "size": item["size"], "sha256": item["sha256"]}
+        for item in payload
+    ]
+    return json.dumps(comparable, ensure_ascii=False, sort_keys=True)
+
+
+def _ensure_active_draft_id() -> str:
+    draft_id = str(st.session_state.get("active_draft_id") or "")
+    if not _is_valid_draft_id(draft_id):
+        draft_id = _get_query_param_value(DRAFT_QUERY_PARAM)
+    if not _is_valid_draft_id(draft_id):
+        draft_id = uuid.uuid4().hex
+    st.session_state.active_draft_id = draft_id
+    st.query_params[DRAFT_QUERY_PARAM] = draft_id
+    return draft_id
+
+
+def _current_pdf_display_names() -> list[str]:
+    names = list(st.session_state.get("uploaded_file_display_names") or [])
+    paths = [Path(p) for p in st.session_state.get("saved_paths", [])]
+    if len(names) == len(paths):
+        return names
+    return [path.name for path in paths]
+
+
+def _write_draft_state() -> None:
+    draft_id = str(st.session_state.get("active_draft_id") or "")
+    if not _is_valid_draft_id(draft_id):
+        return
+    state_path = _draft_state_path(draft_id)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "draft_id": draft_id,
+        "step": st.session_state.get("step", "upload"),
+        "saved_paths": [str(Path(p)) for p in st.session_state.get("saved_paths", [])],
+        "uploaded_file_display_names": _current_pdf_display_names(),
+        "uploaded_file_signature": st.session_state.get("uploaded_file_signature", ""),
+        "roles": st.session_state.get("roles", []),
+        "case_mode": st.session_state.get("case_mode", CASE_MODE_CURRENT),
+        "winner_idx": st.session_state.get("winner_idx"),
+        "winner_tier_internal": st.session_state.get("winner_tier_internal", ""),
+        "winner_quote_position": st.session_state.get("winner_quote_position"),
+        "offer_tier_overrides": st.session_state.get("offer_tier_overrides", {}),
+        "resolved_extractions": st.session_state.get("resolved_extractions", []),
+        "analysis": st.session_state.get("analysis", {}),
+        "session_metrics": st.session_state.get("session_metrics", {}),
+        "uf_ref": st.session_state.get("uf_ref"),
+        "run_status": st.session_state.get("run_status", "idle"),
+        "run_error": st.session_state.get("run_error", ""),
+        "run_stage": st.session_state.get("run_stage", ""),
+    }
+    state_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _restore_draft_from_query() -> bool:
+    if st.session_state.get("active_draft_id") or st.session_state.get("saved_paths"):
+        return False
+    draft_id = _get_query_param_value(DRAFT_QUERY_PARAM)
+    if not _is_valid_draft_id(draft_id):
+        return False
+    state_path = _draft_state_path(draft_id)
+    if not state_path.is_file():
+        return False
+    try:
+        draft = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    saved_paths = [Path(path) for path in draft.get("saved_paths", [])]
+    saved_paths = [path for path in saved_paths if path.is_file()]
+    if not saved_paths:
+        return False
+
+    st.session_state.active_draft_id = draft_id
+    st.session_state.saved_paths = saved_paths
+    st.session_state.uploaded_file_display_names = (
+        draft.get("uploaded_file_display_names") or [path.name for path in saved_paths]
+    )
+    st.session_state.uploaded_file_signature = draft.get("uploaded_file_signature", "")
+    st.session_state.roles = draft.get("roles", [])
+    st.session_state.case_mode = _normalize_case_mode(draft.get("case_mode"))
+    st.session_state.winner_idx = draft.get("winner_idx")
+    st.session_state.winner_tier_internal = draft.get("winner_tier_internal", "")
+    st.session_state.winner_quote_position = draft.get("winner_quote_position")
+    overrides = draft.get("offer_tier_overrides", {})
+    st.session_state.offer_tier_overrides = {
+        int(k): v for k, v in overrides.items()
+    } if isinstance(overrides, dict) else {}
+    st.session_state.resolved_extractions = draft.get("resolved_extractions", [])
+    st.session_state.analysis = draft.get("analysis", {})
+    st.session_state.session_metrics = draft.get("session_metrics", {})
+    uf_ref = draft.get("uf_ref")
+    st.session_state.uf_ref = tuple(uf_ref) if isinstance(uf_ref, list) else uf_ref
+
+    restored_status = draft.get("run_status", "idle")
+    if restored_status == "running":
+        st.session_state.run_status = "failed"
+        st.session_state.run_stage = draft.get("run_stage", "corrida")
+        st.session_state.run_error = (
+            "La sesión se reconectó mientras la corrida estaba en proceso. "
+            "Los archivos quedaron recuperados; puedes iniciar de nuevo o reintentar el análisis si hay extracciones."
+        )
+        if st.session_state.resolved_extractions and not st.session_state.analysis:
+            st.session_state.analysis = {
+                "error": "run_interrupted",
+                "message": st.session_state.run_error,
+            }
+            st.session_state.step = "editor"
+        else:
+            st.session_state.step = "upload"
+    else:
+        st.session_state.run_status = restored_status
+        st.session_state.run_error = draft.get("run_error", "")
+        st.session_state.run_stage = draft.get("run_stage", "")
+        st.session_state.step = draft.get("step", "upload")
+    return True
+
+
+def _persist_uploaded_files(uploaded_files) -> list[Path]:
+    payload = _uploaded_payload(uploaded_files)
+    signature = _payload_signature(payload)
+    existing_paths = [Path(p) for p in st.session_state.get("saved_paths", [])]
+    if (
+        st.session_state.get("uploaded_file_signature") == signature
+        and len(existing_paths) == len(payload)
+        and all(path.is_file() for path in existing_paths)
+    ):
+        return existing_paths
+
+    draft_id = _ensure_active_draft_id()
+    draft_dir = _draft_dir(draft_id)
+    draft_dir.mkdir(parents=True, exist_ok=True)
+    for old_pdf in draft_dir.glob("*.pdf"):
+        old_pdf.unlink(missing_ok=True)
+
+    saved_paths = []
+    for item in payload:
+        out_path = draft_dir / item["safe_name"]
+        out_path.write_bytes(item["data"])
+        saved_paths.append(out_path)
+
+    st.session_state.saved_paths = saved_paths
+    st.session_state.uploaded_file_display_names = [item["name"] for item in payload]
+    st.session_state.uploaded_file_signature = signature
+    st.session_state.resolved_extractions = []
+    st.session_state.analysis = {}
+    st.session_state.session_metrics = {}
+    _clear_generated_pdf_state()
+    if st.session_state.get("run_status") != "running":
+        _reset_run_status()
+    _write_draft_state()
+    return saved_paths
+
+
+def _clear_active_draft(remove_files: bool = False) -> None:
+    draft_id = str(st.session_state.get("active_draft_id") or _get_query_param_value(DRAFT_QUERY_PARAM))
+    if remove_files and _is_valid_draft_id(draft_id):
+        shutil.rmtree(_draft_dir(draft_id), ignore_errors=True)
+    for key in (
+        "active_draft_id",
+        "uploaded_file_display_names",
+        "uploaded_file_signature",
+    ):
+        st.session_state.pop(key, None)
+    _clear_query_draft_token()
+
+
+def _reset_proposal_state(remove_draft_files: bool = True) -> None:
+    st.session_state.step = "upload"
+    st.session_state.saved_paths = []
+    st.session_state.roles = []
+    st.session_state.winner_idx = None
+    st.session_state.winner_tier_internal = ""
+    st.session_state.winner_quote_position = None
+    st.session_state.offer_tier_overrides = {}
+    st.session_state.extractions = []
+    st.session_state.resolved_extractions = []
+    st.session_state.analysis = {}
+    st.session_state.session_metrics = {}
+    st.session_state.uf_ref = None
+    st.session_state._upload_file_count = 0
+    st.session_state.upload_widget_nonce = int(st.session_state.get("upload_widget_nonce", 0)) + 1
+    _reset_run_status()
+    _clear_generated_pdf_state()
+    _clear_active_draft(remove_files=remove_draft_files)
 
 
 def _create_progress_tracker(total_steps: int):
@@ -505,6 +740,8 @@ def main():
         st.session_state.upload_winner_file_idx = None
     if "_upload_file_count" not in st.session_state:
         st.session_state._upload_file_count = 0
+    if "upload_widget_nonce" not in st.session_state:
+        st.session_state.upload_widget_nonce = 0
     if "winner_idx" not in st.session_state:
         st.session_state.winner_idx = None
     if "winner_tier_internal" not in st.session_state:
@@ -525,16 +762,12 @@ def main():
         st.session_state.uf_ref = None
     if "run_status" not in st.session_state:
         _reset_run_status()
+    _restore_draft_from_query()
 
     # Reset button to start over
     if st.session_state.step != "upload":
         if st.button("← Volver a Cargar PDFs"):
-            st.session_state.step = "upload"
-            st.session_state.extractions = []
-            st.session_state.resolved_extractions = []
-            st.session_state.analysis = {}
-            _reset_run_status()
-            _clear_generated_pdf_state()
+            _reset_proposal_state(remove_draft_files=True)
             st.rerun()
 
     # ------------------------------------------------------------------
@@ -552,6 +785,7 @@ def main():
             "Arrastra y suelta los PDFs aquí (3+ cotizaciones con póliza opcional, o exactamente 4 cotizaciones)",
             type=["pdf"],
             accept_multiple_files=True,
+            key=f"pdf_uploader_{st.session_state.upload_widget_nonce}",
         )
 
         with st.sidebar:
@@ -560,6 +794,7 @@ def main():
             if st.button("Cerrar sesión", use_container_width=True):
                 st.session_state.refcar_authenticated = False
                 _clear_query_auth_token()
+                _reset_proposal_state(remove_draft_files=True)
                 st.rerun()
             st.divider()
             st.header("Configuración")
@@ -600,13 +835,38 @@ def main():
                     value=date.today(),
                 )
 
-        if not uploaded_files:
+        active_paths: list[Path] = []
+        if uploaded_files:
+            active_paths = _persist_uploaded_files(uploaded_files)
+        else:
+            active_paths = [
+                Path(path)
+                for path in st.session_state.get("saved_paths", [])
+                if Path(path).is_file()
+            ]
+
+        if not active_paths:
             st.info("Carga PDFs para iniciar la propuesta.")
             _show_run_history()
             st.stop()
 
-        n_files = len(uploaded_files)
-        upload_signature = f"{case_mode}:{n_files}"
+        if not uploaded_files:
+            st.success(
+                "Recuperé los PDFs que ya estaban cargados en esta sesión. "
+                "Puedes seguir con ellos o volver a cargar PDFs para iniciar otra propuesta."
+            )
+            if st.button("Descartar PDFs recuperados y subir otros"):
+                _reset_proposal_state(remove_draft_files=True)
+                st.rerun()
+
+        file_display_names = _current_pdf_display_names()
+        if len(file_display_names) != len(active_paths):
+            file_display_names = [path.name for path in active_paths]
+
+        n_files = len(active_paths)
+        upload_signature = (
+            f"{case_mode}:{n_files}:{st.session_state.get('uploaded_file_signature', '')}"
+        )
         if st.session_state.get("_upload_file_count") != upload_signature:
             st.session_state._upload_file_count = upload_signature
             st.session_state.upload_winner_file_idx = None
@@ -633,20 +893,23 @@ def main():
             role_keys_for_mode = ROLE_KEYS
 
         roles: list[str] = []
+        restored_roles = list(st.session_state.get("roles") or [])
 
         cols_header = st.columns([3, 2])
         cols_header[0].markdown("**Archivo**")
         cols_header[1].markdown("**Rol**")
 
-        for idx, file_obj in enumerate(uploaded_files):
+        for idx, file_name in enumerate(file_display_names):
             c_name, c_role = st.columns([3, 2])
-            c_name.write(file_obj.name)
+            c_name.write(file_name)
 
             default_idx = min(idx, len(role_labels_for_mode) - 1)
-            if case_mode == CASE_MODE_CURRENT and idx == 0 and len(uploaded_files) > 3:
+            if case_mode == CASE_MODE_CURRENT and idx == 0 and n_files > 3:
                 default_idx = 0
             elif case_mode == CASE_MODE_CURRENT:
                 default_idx = min(idx + 1, len(role_labels_for_mode) - 1)
+            if idx < len(restored_roles) and restored_roles[idx] in role_keys_for_mode:
+                default_idx = role_keys_for_mode.index(restored_roles[idx])
 
             role_label = c_role.selectbox(
                 f"Rol #{idx+1}",
@@ -670,11 +933,14 @@ def main():
         if quote_indices:
             winner_key = f"upload_winner_file_idx_{case_mode}"
             if st.session_state.get(winner_key) not in quote_indices:
-                st.session_state[winner_key] = quote_indices[0]
+                restored_winner = st.session_state.get("winner_idx")
+                st.session_state[winner_key] = (
+                    restored_winner if restored_winner in quote_indices else quote_indices[0]
+                )
             winner_idx = st.radio(
                 "Cotización ganadora (elige una)",
                 options=quote_indices,
-                format_func=lambda i: uploaded_files[i].name,
+                format_func=lambda i: file_display_names[i],
                 horizontal=True,
                 key=winner_key,
             )
@@ -715,10 +981,12 @@ def main():
             st.session_state.winner_tier_internal = winner_tier_internal
             st.session_state.winner_quote_position = winner_quote_position
             st.session_state.offer_tier_overrides = offer_tier_overrides
-            st.session_state.saved_paths = _save_uploaded_files(uploaded_files)
+            st.session_state.saved_paths = active_paths
+            st.session_state.uploaded_file_display_names = file_display_names
             st.session_state.roles = roles
             st.session_state.winner_idx = winner_idx
             st.session_state.case_mode = case_mode
+            _write_draft_state()
 
             # Prepare metrics
             session = SessionMetrics(model=model)
@@ -738,6 +1006,7 @@ def main():
                     )
                 except UFReferenceError as exc:
                     _set_run_failed("uf", exc)
+                    _write_draft_state()
                     st.error(
                         f"No se pudo obtener la UF automáticamente: {exc}. "
                         "Activa **Ingresar UF manualmente** en la barra lateral e intenta de nuevo."
@@ -745,6 +1014,7 @@ def main():
                     st.stop()
 
                 st.session_state.uf_ref = uf_ref
+                _write_draft_state()
 
                 num_pdfs = len(st.session_state.saved_paths)
                 total_steps = num_pdfs + 1  # extracción por PDF + análisis final
@@ -773,6 +1043,7 @@ def main():
                         ext_json = {"error": "Failed to parse JSON", "raw": resp_text[:500]}
                     single_extractions.append(ext_json)
                     st.session_state.resolved_extractions = single_extractions
+                    _write_draft_state()
 
                 st.session_state.run_stage = "Analizando caso completo"
                 on_step("Analizando caso completo", num_pdfs + 1, total_steps)
@@ -783,6 +1054,7 @@ def main():
                     and st.session_state.analysis.get("error")
                 )
                 st.session_state.run_status = "completed" if analysis_ok else "failed"
+                _write_draft_state()
                 complete_progress(
                     "Extracción y análisis completados."
                     if analysis_ok
@@ -795,6 +1067,7 @@ def main():
                     "message": str(exc),
                 }
                 st.session_state.step = "editor"
+                _write_draft_state()
             finally:
                 client.close()
             st.rerun()
@@ -1102,7 +1375,7 @@ def main():
                 run_file = save_run(
                     model=str(st.session_state.session_metrics.get("model") or DEFAULT_PRIMARY_MODEL),
                     selected_tier=st.session_state.winner_tier_internal,
-                    pdf_names=[p.name for p in st.session_state.saved_paths],
+                    pdf_names=_current_pdf_display_names(),
                     metrics=st.session_state.session_metrics,
                     result={"extractions": st.session_state.resolved_extractions, "analysis": st.session_state.analysis},
                     case_mode=st.session_state.case_mode,
@@ -1145,6 +1418,7 @@ def _retry_analysis_from_current_extractions() -> None:
             "message": str(exc),
         }
         st.session_state.step = "editor"
+        _write_draft_state()
     finally:
         client.close()
 
@@ -1184,6 +1458,7 @@ def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
             "message": str(exc),
         }
         st.session_state.step = "editor"
+        _write_draft_state()
         return
 
     session.add_call(call_metrics)
@@ -1209,6 +1484,7 @@ def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
         else "completed"
     )
     st.session_state.step = "editor"
+    _write_draft_state()
 
 
 def _show_run_history():
