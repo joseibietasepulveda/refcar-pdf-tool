@@ -65,21 +65,143 @@ def _apply_refcar_theme() -> None:
     st.markdown(
         """
         <style>
+        :root {
+            --refcar-navy: #071462;
+            --refcar-navy-soft: #14226F;
+            --refcar-cyan: #21B7E8;
+            --refcar-green: #91F21B;
+            --refcar-bg: #F4F8FC;
+            --refcar-surface: #FFFFFF;
+            --refcar-surface-soft: #F8FBFE;
+            --refcar-border: #D8E3EE;
+            --refcar-text: #172033;
+            --refcar-muted: #637083;
+            --refcar-shadow: 0 18px 50px rgba(7, 20, 98, 0.10);
+        }
         .stApp {
             background:
-                radial-gradient(circle at 15% 15%, rgba(31, 183, 232, 0.16), transparent 28%),
-                radial-gradient(circle at 82% 18%, rgba(145, 242, 27, 0.12), transparent 24%),
-                linear-gradient(135deg, #071014 0%, #0B1026 48%, #050713 100%);
+                radial-gradient(circle at 12% 8%, rgba(33, 183, 232, 0.18), transparent 30%),
+                radial-gradient(circle at 88% 10%, rgba(145, 242, 27, 0.16), transparent 28%),
+                linear-gradient(135deg, #FFFFFF 0%, #F4F9FD 48%, #EEF7FC 100%);
+            color: var(--refcar-text);
         }
         [data-testid="stHeader"] {
-            background: rgba(5, 7, 19, 0);
+            background: rgba(244, 248, 252, 0.78);
+            backdrop-filter: blur(14px);
         }
         [data-testid="stSidebar"] {
-            background: rgba(8, 14, 24, 0.92);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(238, 247, 252, 0.96));
+            border-right: 1px solid var(--refcar-border);
+            box-shadow: 8px 0 30px rgba(7, 20, 98, 0.06);
         }
         .block-container {
             padding-top: 2.4rem;
+            max-width: 1240px;
+        }
+        h1, h2, h3, h4, h5, h6,
+        [data-testid="stMarkdownContainer"] h1,
+        [data-testid="stMarkdownContainer"] h2,
+        [data-testid="stMarkdownContainer"] h3 {
+            color: var(--refcar-navy);
+            letter-spacing: -0.025em;
+        }
+        p, label, span, div[data-testid="stMarkdownContainer"] {
+            color: var(--refcar-text);
+        }
+        [data-testid="stCaptionContainer"],
+        [data-testid="stMarkdownContainer"] p,
+        small {
+            color: var(--refcar-muted);
+        }
+        [data-testid="stSidebar"] h1,
+        [data-testid="stSidebar"] h2,
+        [data-testid="stSidebar"] h3,
+        [data-testid="stSidebar"] p,
+        [data-testid="stSidebar"] label,
+        [data-testid="stSidebar"] span,
+        [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"] {
+            color: var(--refcar-text);
+        }
+        [data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+        [data-testid="stSidebar"] small {
+            color: var(--refcar-muted);
+        }
+        div[data-testid="stFileUploaderDropzone"],
+        div[data-testid="stExpander"],
+        div[data-testid="stDataFrame"],
+        div[data-testid="stAlert"],
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            border-color: var(--refcar-border) !important;
+            background: rgba(255, 255, 255, 0.88);
+            box-shadow: 0 10px 28px rgba(7, 20, 98, 0.06);
+        }
+        div[data-testid="stExpander"] {
+            border-radius: 18px;
+            overflow: hidden;
+        }
+        div[data-testid="stFileUploaderDropzone"] {
+            border-radius: 20px;
+            background:
+                linear-gradient(135deg, rgba(255,255,255,0.96), rgba(238,247,252,0.9));
+        }
+        div[data-testid="stFileUploaderDropzone"] svg {
+            color: var(--refcar-cyan);
+        }
+        div[data-baseweb="select"] > div,
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="textarea"] textarea,
+        input,
+        textarea {
+            background: var(--refcar-surface) !important;
+            border-color: var(--refcar-border) !important;
+            color: var(--refcar-text) !important;
+            border-radius: 13px !important;
+        }
+        input::placeholder,
+        textarea::placeholder {
+            color: #8A96A8 !important;
+        }
+        div[data-baseweb="select"] svg {
+            color: var(--refcar-navy);
+        }
+        .stButton button,
+        .stDownloadButton button,
+        button[kind="primary"],
+        button[data-testid="baseButton-primary"] {
+            border-radius: 999px !important;
+            border: 0 !important;
+            background: linear-gradient(90deg, var(--refcar-cyan), var(--refcar-green)) !important;
+            color: var(--refcar-navy) !important;
+            font-weight: 850 !important;
+            box-shadow: 0 12px 26px rgba(33, 183, 232, 0.24);
+        }
+        .stButton button:hover,
+        .stDownloadButton button:hover,
+        button[kind="primary"]:hover,
+        button[data-testid="baseButton-primary"]:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 30px rgba(33, 183, 232, 0.30);
+        }
+        button[data-testid="baseButton-secondary"],
+        .stButton button[kind="secondary"] {
+            background: var(--refcar-surface) !important;
+            color: var(--refcar-navy) !important;
+            border: 1px solid var(--refcar-border) !important;
+            box-shadow: 0 8px 18px rgba(7, 20, 98, 0.08);
+        }
+        [data-testid="stRadio"] label,
+        [data-testid="stCheckbox"] label {
+            color: var(--refcar-text) !important;
+        }
+        [data-testid="stMetricValue"],
+        code {
+            color: var(--refcar-navy) !important;
+            background: rgba(33, 183, 232, 0.10) !important;
+            border-radius: 8px;
+        }
+        hr {
+            border-color: var(--refcar-border);
         }
         .refcar-login-shell {
             max-width: 760px;
@@ -87,12 +209,11 @@ def _apply_refcar_theme() -> None:
         }
         .refcar-login-card {
             padding: 42px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(7, 20, 98, 0.10);
             border-radius: 30px;
             background:
-                linear-gradient(145deg, rgba(255,255,255,0.13), rgba(255,255,255,0.04)),
-                rgba(7, 16, 20, 0.76);
-            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+                linear-gradient(145deg, rgba(255,255,255,0.98), rgba(238,247,252,0.88));
+            box-shadow: var(--refcar-shadow);
             backdrop-filter: blur(18px);
             text-align: center;
         }
@@ -106,7 +227,7 @@ def _apply_refcar_theme() -> None:
         }
         .refcar-login-title {
             margin: 0;
-            color: #FFFFFF;
+            color: var(--refcar-navy);
             font-size: 2.35rem;
             font-weight: 850;
             letter-spacing: 0;
@@ -114,7 +235,7 @@ def _apply_refcar_theme() -> None:
         .refcar-login-subtitle {
             margin: 12px auto 0;
             max-width: 640px;
-            color: rgba(255, 255, 255, 0.72);
+            color: var(--refcar-muted);
             font-size: 1.03rem;
             line-height: 1.55;
             text-align: center;
@@ -125,10 +246,10 @@ def _apply_refcar_theme() -> None:
             gap: 8px;
             margin-bottom: 18px;
             padding: 7px 13px;
-            border: 1px solid rgba(145, 242, 27, 0.28);
+            border: 1px solid rgba(145, 242, 27, 0.40);
             border-radius: 999px;
-            color: #B8FF61;
-            background: rgba(145, 242, 27, 0.08);
+            color: var(--refcar-navy);
+            background: linear-gradient(90deg, rgba(33, 183, 232, 0.14), rgba(145, 242, 27, 0.20));
             font-size: 0.84rem;
             font-weight: 700;
             letter-spacing: 0.02em;
@@ -166,14 +287,14 @@ def _apply_refcar_theme() -> None:
             border: 0;
             border-radius: 10px;
             background: transparent;
-            color: rgba(255, 255, 255, 0.78);
+            color: var(--refcar-navy);
             box-shadow: none;
         }
         div[data-testid="stForm"] button[aria-label*="password"]:hover,
         div[data-testid="stForm"] button[title*="password"]:hover,
         div[data-testid="stForm"] button[kind="icon"]:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #FFFFFF;
+            background: rgba(33, 183, 232, 0.10);
+            color: var(--refcar-navy);
         }
         </style>
         """,
