@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import html
 import hmac
 import os
 import json
@@ -133,20 +134,54 @@ def _apply_refcar_theme() -> None:
         div[data-testid="stAlert"],
         div[data-testid="stVerticalBlockBorderWrapper"] {
             border-color: var(--refcar-border) !important;
-            background: rgba(255, 255, 255, 0.88);
+            background: rgba(255, 255, 255, 0.94) !important;
             box-shadow: 0 10px 28px rgba(7, 20, 98, 0.06);
         }
         div[data-testid="stExpander"] {
             border-radius: 18px;
             overflow: hidden;
         }
+        div[data-testid="stExpander"] details,
+        div[data-testid="stExpander"] details > div {
+            background: var(--refcar-surface) !important;
+            color: var(--refcar-text) !important;
+        }
+        div[data-testid="stExpander"] summary {
+            background:
+                linear-gradient(90deg, rgba(33, 183, 232, 0.10), rgba(145, 242, 27, 0.10)) !important;
+            border-bottom: 1px solid var(--refcar-border) !important;
+            color: var(--refcar-navy) !important;
+        }
+        div[data-testid="stExpander"] summary:hover {
+            background:
+                linear-gradient(90deg, rgba(33, 183, 232, 0.16), rgba(145, 242, 27, 0.14)) !important;
+        }
+        div[data-testid="stExpander"] summary svg {
+            color: var(--refcar-navy) !important;
+            fill: var(--refcar-navy) !important;
+        }
         div[data-testid="stFileUploaderDropzone"] {
             border-radius: 20px;
             background:
-                linear-gradient(135deg, rgba(255,255,255,0.96), rgba(238,247,252,0.9));
+                linear-gradient(135deg, rgba(255,255,255,0.98), rgba(238,247,252,0.94)) !important;
+            border: 1px dashed rgba(33, 183, 232, 0.42) !important;
+            color: var(--refcar-text) !important;
+        }
+        div[data-testid="stFileUploaderDropzone"] * {
+            color: var(--refcar-text) !important;
+        }
+        div[data-testid="stFileUploaderDropzone"] button {
+            background: var(--refcar-surface) !important;
+            color: var(--refcar-navy) !important;
+            border: 1px solid var(--refcar-border) !important;
+            box-shadow: 0 8px 18px rgba(7, 20, 98, 0.08) !important;
+        }
+        div[data-testid="stFileUploaderDropzone"] small {
+            color: var(--refcar-muted) !important;
         }
         div[data-testid="stFileUploaderDropzone"] svg {
-            color: var(--refcar-cyan);
+            color: var(--refcar-cyan) !important;
+            fill: var(--refcar-cyan) !important;
         }
         div[data-baseweb="select"] > div,
         div[data-baseweb="input"] > div,
@@ -157,13 +192,40 @@ def _apply_refcar_theme() -> None:
             border-color: var(--refcar-border) !important;
             color: var(--refcar-text) !important;
             border-radius: 13px !important;
+            box-shadow: none !important;
+        }
+        div[data-baseweb="input"] > div:hover,
+        div[data-baseweb="select"] > div:hover,
+        div[data-baseweb="textarea"] textarea:hover,
+        div[data-baseweb="input"] > div:focus-within,
+        div[data-baseweb="select"] > div:focus-within,
+        div[data-baseweb="textarea"] textarea:focus {
+            border-color: var(--refcar-cyan) !important;
+            box-shadow: 0 0 0 3px rgba(33, 183, 232, 0.14) !important;
+            outline: none !important;
+        }
+        [data-testid="stNumberInput"] button,
+        [data-testid="stNumberInput"] [role="button"] {
+            background: #EAF7FE !important;
+            color: var(--refcar-navy) !important;
+            border: 1px solid var(--refcar-border) !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stNumberInput"] button svg,
+        [data-testid="stNumberInput"] [role="button"] svg {
+            color: var(--refcar-navy) !important;
+            fill: var(--refcar-navy) !important;
         }
         input::placeholder,
         textarea::placeholder {
             color: #8A96A8 !important;
         }
-        div[data-baseweb="select"] svg {
-            color: var(--refcar-navy);
+        div[data-baseweb="select"] svg,
+        div[data-baseweb="checkbox"] svg,
+        [data-testid="stRadio"] svg,
+        [data-testid="stCheckbox"] svg {
+            color: var(--refcar-navy) !important;
+            fill: var(--refcar-navy) !important;
         }
         .stButton button,
         .stDownloadButton button,
@@ -194,11 +256,56 @@ def _apply_refcar_theme() -> None:
         [data-testid="stCheckbox"] label {
             color: var(--refcar-text) !important;
         }
+        [data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child,
+        [data-testid="stCheckbox"] label > div:first-child {
+            background: var(--refcar-surface) !important;
+            border-color: var(--refcar-border) !important;
+        }
+        [data-testid="stRadio"] div[role="radiogroup"] > label[data-checked="true"] > div:first-child,
+        [data-testid="stCheckbox"] label[data-checked="true"] > div:first-child {
+            background: var(--refcar-cyan) !important;
+            border-color: var(--refcar-cyan) !important;
+        }
         [data-testid="stMetricValue"],
         code {
             color: var(--refcar-navy) !important;
             background: rgba(33, 183, 232, 0.10) !important;
             border-radius: 8px;
+        }
+        div[data-testid="stDataFrame"],
+        div[data-testid="stTable"],
+        div[data-testid="stTable"] table {
+            background: var(--refcar-surface) !important;
+            color: var(--refcar-text) !important;
+        }
+        .refcar-history-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border: 1px solid var(--refcar-border);
+            border-radius: 16px;
+            background: var(--refcar-surface);
+            box-shadow: 0 12px 28px rgba(7, 20, 98, 0.08);
+        }
+        .refcar-history-table th,
+        .refcar-history-table td {
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--refcar-border);
+            color: var(--refcar-text);
+            text-align: left;
+        }
+        .refcar-history-table th {
+            background: linear-gradient(90deg, rgba(33, 183, 232, 0.12), rgba(145, 242, 27, 0.10));
+            color: var(--refcar-navy);
+            font-weight: 800;
+        }
+        .refcar-history-table tr:last-child td {
+            border-bottom: 0;
+        }
+        .refcar-history-table td:last-child {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
         }
         hr {
             border-color: var(--refcar-border);
@@ -1616,7 +1723,22 @@ def _show_run_history():
         st.info("Aún no hay corridas guardadas.")
         return
     df = _build_runs_dataframe(runs)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    rows = []
+    for row in df.to_dict(orient="records"):
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(row.get('run_id', '')))}</td>"
+            f"<td>{html.escape(str(row.get('fecha', '')))}</td>"
+            f"<td>{html.escape(str(row.get('tiempo_s', '')))}</td>"
+            "</tr>"
+        )
+    st.markdown(
+        "<table class=\"refcar-history-table\">"
+        "<thead><tr><th>run_id</th><th>fecha</th><th>tiempo_s</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>",
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":
