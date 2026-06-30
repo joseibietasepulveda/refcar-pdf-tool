@@ -183,14 +183,31 @@ def _apply_refcar_theme() -> None:
         }
         div[data-baseweb="select"] > div,
         div[data-baseweb="input"] > div,
-        div[data-baseweb="textarea"] textarea,
-        input,
-        textarea {
+        div[data-baseweb="textarea"] textarea {
             background: var(--refcar-surface) !important;
-            border: 2px solid rgba(7, 20, 98, 0.28) !important;
+            border: 1.5px solid rgba(7, 20, 98, 0.26) !important;
             color: var(--refcar-text) !important;
             border-radius: 13px !important;
             box-shadow: none !important;
+        }
+        div[data-baseweb="input"] input,
+        div[data-baseweb="select"] input,
+        div[data-baseweb="textarea"] textarea,
+        input[type="text"],
+        input[type="password"],
+        input[type="number"] {
+            border: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+        }
+        div[data-baseweb="select"] input {
+            caret-color: transparent !important;
+            color: transparent !important;
+            min-width: 0 !important;
+            width: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
         }
         div[data-baseweb="input"] > div:hover,
         div[data-baseweb="select"] > div:hover,
@@ -198,8 +215,8 @@ def _apply_refcar_theme() -> None:
         div[data-baseweb="input"] > div:focus-within,
         div[data-baseweb="select"] > div:focus-within,
         div[data-baseweb="textarea"] textarea:focus {
-            border-color: var(--refcar-cyan) !important;
-            box-shadow: 0 0 0 3px rgba(33, 183, 232, 0.14) !important;
+            border-color: rgba(7, 20, 98, 0.42) !important;
+            box-shadow: 0 0 0 2px rgba(33, 183, 232, 0.10) !important;
             outline: none !important;
         }
         div[data-baseweb="input"] input,
@@ -212,7 +229,7 @@ def _apply_refcar_theme() -> None:
         [data-testid="stNumberInput"] [role="button"] {
             background: #EAF7FE !important;
             color: var(--refcar-navy) !important;
-            border: 2px solid rgba(7, 20, 98, 0.18) !important;
+            border: 1.5px solid rgba(7, 20, 98, 0.18) !important;
             box-shadow: none !important;
         }
         [data-testid="stNumberInput"] button svg,
@@ -237,17 +254,17 @@ def _apply_refcar_theme() -> None:
         button[data-testid="baseButton-primary"] {
             border-radius: 999px !important;
             border: 0 !important;
-            background: linear-gradient(90deg, var(--refcar-cyan), var(--refcar-green)) !important;
+            background: linear-gradient(90deg, #21B7E8, #64D86C) !important;
             color: var(--refcar-navy) !important;
             font-weight: 850 !important;
-            box-shadow: 0 12px 26px rgba(33, 183, 232, 0.24);
+            box-shadow: 0 10px 22px rgba(7, 20, 98, 0.14);
         }
         .stButton button:hover,
         .stDownloadButton button:hover,
         button[kind="primary"]:hover,
         button[data-testid="baseButton-primary"]:hover {
             transform: translateY(-1px);
-            box-shadow: 0 16px 30px rgba(33, 183, 232, 0.30);
+            box-shadow: 0 14px 26px rgba(7, 20, 98, 0.18);
         }
         button[data-testid="baseButton-secondary"],
         .stButton button[kind="secondary"] {
