@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import html
 import hmac
 import os
 import json
@@ -15,7 +14,6 @@ from pathlib import Path
 if "DYLD_LIBRARY_PATH" not in os.environ:
     os.environ["DYLD_LIBRARY_PATH"] = "/opt/homebrew/lib"
 
-import pandas as pd
 import streamlit as st
 
 from src.config import (
@@ -27,7 +25,7 @@ from src.metrics import SessionMetrics
 from src.openrouter import OpenRouterClient
 from src.pdf_generator import generate_summary_pdf
 from src.pipeline import _parse_json_response
-from src.run_store import list_runs, save_run
+from src.run_store import save_run
 from src.uf_reference import UFReferenceError, resolve_reference_uf
 from src.number_utils import parse_chilean_number
 from src.prompts import build_analysis_prompt
@@ -189,7 +187,7 @@ def _apply_refcar_theme() -> None:
         input,
         textarea {
             background: var(--refcar-surface) !important;
-            border-color: var(--refcar-border) !important;
+            border: 2px solid rgba(7, 20, 98, 0.28) !important;
             color: var(--refcar-text) !important;
             border-radius: 13px !important;
             box-shadow: none !important;
@@ -204,11 +202,17 @@ def _apply_refcar_theme() -> None:
             box-shadow: 0 0 0 3px rgba(33, 183, 232, 0.14) !important;
             outline: none !important;
         }
+        div[data-baseweb="input"] input,
+        div[data-baseweb="textarea"] textarea,
+        div[data-baseweb="select"] input {
+            color: var(--refcar-text) !important;
+            font-weight: 650 !important;
+        }
         [data-testid="stNumberInput"] button,
         [data-testid="stNumberInput"] [role="button"] {
             background: #EAF7FE !important;
             color: var(--refcar-navy) !important;
-            border: 1px solid var(--refcar-border) !important;
+            border: 2px solid rgba(7, 20, 98, 0.18) !important;
             box-shadow: none !important;
         }
         [data-testid="stNumberInput"] button svg,
@@ -256,15 +260,47 @@ def _apply_refcar_theme() -> None:
         [data-testid="stCheckbox"] label {
             color: var(--refcar-text) !important;
         }
+        label[data-baseweb="radio"],
+        label[data-baseweb="checkbox"] {
+            color: var(--refcar-text) !important;
+        }
+        [data-testid="stRadio"] [role="radio"],
+        [data-testid="stCheckbox"] [role="checkbox"],
+        [data-testid="stRadio"] input[type="radio"],
+        [data-testid="stCheckbox"] input[type="checkbox"],
+        input[type="radio"],
+        input[type="checkbox"] {
+            accent-color: var(--refcar-navy) !important;
+            border-color: var(--refcar-navy) !important;
+            color: var(--refcar-navy) !important;
+        }
         [data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child,
-        [data-testid="stCheckbox"] label > div:first-child {
+        [data-testid="stCheckbox"] label > div:first-child,
+        [data-testid="stRadio"] label > div:first-child,
+        label[data-baseweb="radio"] > div:first-child,
+        label[data-baseweb="checkbox"] > span:first-child {
             background: var(--refcar-surface) !important;
-            border-color: var(--refcar-border) !important;
+            border: 2px solid rgba(7, 20, 98, 0.55) !important;
+            box-shadow: inset 0 0 0 3px var(--refcar-surface) !important;
         }
         [data-testid="stRadio"] div[role="radiogroup"] > label[data-checked="true"] > div:first-child,
-        [data-testid="stCheckbox"] label[data-checked="true"] > div:first-child {
-            background: var(--refcar-cyan) !important;
-            border-color: var(--refcar-cyan) !important;
+        [data-testid="stCheckbox"] label[data-checked="true"] > div:first-child,
+        [data-testid="stRadio"] label[data-checked="true"] > div:first-child,
+        label[data-baseweb="radio"]:has(input:checked) > div:first-child,
+        label[data-baseweb="checkbox"]:has(input:checked) > span:first-child {
+            background: var(--refcar-navy) !important;
+            border-color: var(--refcar-navy) !important;
+            box-shadow: inset 0 0 0 4px var(--refcar-surface) !important;
+        }
+        label[data-baseweb="radio"]:has(input:checked) > div:first-child > div,
+        label[data-baseweb="checkbox"]:has(input:checked) > span:first-child > div {
+            background: var(--refcar-navy) !important;
+            border-color: var(--refcar-navy) !important;
+        }
+        [data-testid="stRadio"] svg,
+        [data-testid="stCheckbox"] svg {
+            color: var(--refcar-navy) !important;
+            fill: var(--refcar-navy) !important;
         }
         [data-testid="stMetricValue"],
         code {
@@ -277,35 +313,6 @@ def _apply_refcar_theme() -> None:
         div[data-testid="stTable"] table {
             background: var(--refcar-surface) !important;
             color: var(--refcar-text) !important;
-        }
-        .refcar-history-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            overflow: hidden;
-            border: 1px solid var(--refcar-border);
-            border-radius: 16px;
-            background: var(--refcar-surface);
-            box-shadow: 0 12px 28px rgba(7, 20, 98, 0.08);
-        }
-        .refcar-history-table th,
-        .refcar-history-table td {
-            padding: 13px 16px;
-            border-bottom: 1px solid var(--refcar-border);
-            color: var(--refcar-text);
-            text-align: left;
-        }
-        .refcar-history-table th {
-            background: linear-gradient(90deg, rgba(33, 183, 232, 0.12), rgba(145, 242, 27, 0.10));
-            color: var(--refcar-navy);
-            font-weight: 800;
-        }
-        .refcar-history-table tr:last-child td {
-            border-bottom: 0;
-        }
-        .refcar-history-table td:last-child {
-            text-align: right;
-            font-variant-numeric: tabular-nums;
         }
         hr {
             border-color: var(--refcar-border);
@@ -923,20 +930,6 @@ def _set_run_failed(stage: str, error: Exception | str) -> None:
     st.session_state.run_error = str(error)
 
 
-def _build_runs_dataframe(runs: list[dict]) -> pd.DataFrame:
-    rows = []
-    for run in runs:
-        metrics = run.get("metrics", {})
-        rows.append(
-            {
-                "run_id": run.get("run_id", ""),
-                "fecha": run.get("created_at", ""),
-                "tiempo_s": metrics.get("total_time_seconds", 0),
-            }
-        )
-    return pd.DataFrame(rows)
-
-
 def main():
     st.set_page_config(page_title="Herramienta Seguros Refcar", layout="wide")
     _apply_refcar_theme()
@@ -1075,7 +1068,6 @@ def main():
 
         if not active_paths:
             st.info("Carga PDFs para iniciar la propuesta.")
-            _show_run_history()
             st.stop()
 
         if not uploaded_files:
@@ -1624,9 +1616,6 @@ def main():
                 use_container_width=True,
             )
 
-    _show_run_history()
-
-
 def _retry_analysis_from_current_extractions() -> None:
     model = str(st.session_state.session_metrics.get("model") or DEFAULT_PRIMARY_MODEL)
     session = SessionMetrics.from_dict(st.session_state.session_metrics)
@@ -1713,32 +1702,6 @@ def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
     )
     st.session_state.step = "editor"
     _write_draft_state()
-
-
-def _show_run_history():
-    st.divider()
-    st.subheader("Historial de corridas")
-    runs = list_runs()
-    if not runs:
-        st.info("Aún no hay corridas guardadas.")
-        return
-    df = _build_runs_dataframe(runs)
-    rows = []
-    for row in df.to_dict(orient="records"):
-        rows.append(
-            "<tr>"
-            f"<td>{html.escape(str(row.get('run_id', '')))}</td>"
-            f"<td>{html.escape(str(row.get('fecha', '')))}</td>"
-            f"<td>{html.escape(str(row.get('tiempo_s', '')))}</td>"
-            "</tr>"
-        )
-    st.markdown(
-        "<table class=\"refcar-history-table\">"
-        "<thead><tr><th>run_id</th><th>fecha</th><th>tiempo_s</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody>"
-        "</table>",
-        unsafe_allow_html=True,
-    )
 
 
 if __name__ == "__main__":
