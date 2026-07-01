@@ -397,8 +397,34 @@ def _apply_refcar_theme() -> None:
             max-width: 560px;
             margin: 0 auto;
         }
-        div[data-testid="stForm"] input {
-            border-radius: 14px;
+        div[data-testid="stForm"] [data-testid="InputInstructions"],
+        div[data-testid="stForm"] [data-testid="stInputInstructions"],
+        div[data-testid="stForm"] div[class*="InputInstructions"] {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+        }
+        div[data-testid="stForm"] div[data-baseweb="input"] > div {
+            border: 1.5px solid rgba(7, 20, 98, 0.22) !important;
+            border-radius: 16px !important;
+            background: rgba(255, 255, 255, 0.86) !important;
+            box-shadow: none !important;
+            outline: 0 !important;
+            overflow: hidden !important;
+        }
+        div[data-testid="stForm"] div[data-baseweb="input"] > div:focus-within {
+            border-color: rgba(33, 183, 232, 0.72) !important;
+            box-shadow: 0 0 0 2px rgba(33, 183, 232, 0.12) !important;
+            outline: 0 !important;
+        }
+        div[data-testid="stForm"] div[data-baseweb="input"] input {
+            border: 0 !important;
+            outline: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            border-radius: 0 !important;
         }
         div[data-testid="stForm"] .stFormSubmitButton button {
             border-radius: 999px;
@@ -420,6 +446,7 @@ def _apply_refcar_theme() -> None:
             background: transparent;
             color: var(--refcar-navy);
             box-shadow: none;
+            outline: 0;
         }
         div[data-testid="stForm"] button[aria-label*="password"]:hover,
         div[data-testid="stForm"] button[title*="password"]:hover,
