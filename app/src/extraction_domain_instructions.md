@@ -98,6 +98,7 @@ Cuando el documento es la póliza vigente del asegurado, es **obligatorio** extr
 - **Nombre del producto/plan** (ej: Classic, Premium, MAX, etc.). Búscalo en títulos, subtítulos o descripciones del plan.
 - **Deducible en UF**: valor numérico.
 - **Prima**: si solo aparece prima anual total, calcula la mensual dividiéndola por el número de cuotas (o por 12 si no se indica). Pon `monthly_premium_uf` como número decimal (ej: 12.04/12 = 1.003, NO 1003). Marca el `source_value_type` como `"computed"`.
+- **No confundas deducible con prima**: si la póliza dice deducible `10 UF` y prima `UF 1,00/mes`, `deductible_uf` debe ser `10` y `monthly_premium_uf` debe ser `1.00`. Nunca copies el deducible dentro de `monthly_premium_uf`.
 - **Los 12 campos de cobertura listados arriba** — búscalos en tablas de coberturas, condiciones particulares, cláusulas, etc.
 - **Número de póliza**, si aparece.
 - **Medio de pago y cuotas**, si aparecen.

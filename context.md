@@ -492,6 +492,7 @@ Alineado a la plantilla de referencia del cliente (`PLANTILLA_BASE_Detalle_Compa
 - Las etiquetas comerciales (`+ OPCIÓN PREMIUM`, `★ MEJOR OPERACIONAL`, etc.) derivan del **rol** asignado en Streamlit (Básico / Equilibrado / Pro); el borde verde marca solo la **recomendada**.
 - La barra de metadatos del PDF muestra UF, **Cuotas base: 11 cuotas** y fecha; **no** incluye nombre de ejecutivo/a comercial.
 - La franja explicativa del deducible muestra equivalencias para `0`, `3`, `5` y `10 UF`; sus valores CLP se calculan en cada render con la UF de referencia, no son montos fijos.
+- En la columna **Tu seguro hoy**, la tabla separa deducible y prima: `Deducible` muestra `Mismo de hoy · X UF`, `UF/mes` muestra solo la prima mensual en UF y `CLP/mes` muestra solo la prima mensual en pesos. No se debe poner el deducible en `UF/mes`.
 - La lista de coberturas incluye **RC en Exceso** en todas las columnas. Se muestra como capa adicional independiente de RC emergente, daño moral y lucro cesante.
 - El pie editable (`broker_name`, `broker_website`) forma parte del contrato de analisis y se refleja realmente en el PDF.
 - El orden de columnas respeta el orden en que se suben las cotizaciones (la recomendada no salta al frente).

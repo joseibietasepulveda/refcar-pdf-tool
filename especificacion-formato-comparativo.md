@@ -124,10 +124,11 @@ Bloque fijo en posicion, estructura y etiquetas.
 Formato general:
 
 - titulo fijo: `TU SEGURO HOY — {aseguradora/producto}`
-- linea resumen con:
-  - deducible actual;
-  - prima mensual UF;
-  - prima mensual CLP;
+- tabla de precio con tres columnas:
+  - `Deducible`: muestra `Mismo de hoy · {deducible_actual} UF`;
+  - `UF/mes`: muestra solo la prima mensual en UF (`monthly_premium_uf`), nunca el deducible;
+  - `CLP/mes`: muestra solo la prima mensual en CLP (`monthly_premium_clp`);
+- luego bloque de coberturas con:
   - RC;
   - auto de reemplazo;
   - taller;
@@ -265,6 +266,12 @@ Campos estructurales:
 - `current_payment_method`
 - `current_monthly_premium_uf`
 - `current_monthly_premium_clp`
+
+Regla importante de render:
+
+- `current_deductible_uf` es deducible y solo debe ir en la columna/etiqueta de deducible.
+- `current_monthly_premium_uf` es prima mensual y debe alimentar la columna `UF/mes`.
+- No mezclar ambos valores: una póliza con deducible `10 UF` y prima `1 UF/mes` debe mostrarse como `Mismo de hoy · 10 UF | UF 1,00/mes | $...`.
 
 Campos de comparacion:
 
@@ -925,6 +932,7 @@ Si todas las fuentes automaticas fallan, la interfaz muestra el error y pide act
   - Con `current_policy`: 4 columnas (Tu seguro hoy + 3 ofertas).
   - Sin `current_policy`: 3 o 4 columnas de ofertas. La cuarta usa café.
 - **Cabecera:** franja institucional, metadatos asegurado/vehiculo, barra celeste con **UF referencia**, **Cuotas base: 11 cuotas** (fijo) y **fecha** (sin campo de ejecutivo/a comercial), explicacion de deducible con equivalencias CLP (0 / 3 / 5 / 10 UF) calculadas dinamicamente con la UF de referencia.
+- **Columna Tu seguro hoy:** la tabla superior separa deducible y prima mensual. `Deducible` muestra `Mismo de hoy · X UF`; `UF/mes` muestra `UF Y/mes`; `CLP/mes` muestra `$Z`. No se debe repetir el deducible en la columna `UF/mes`.
 - **Por columna de oferta:**
   - Tabla **Precio mensual segun deducible** (hasta 4 filas reales: 0, 3, 5, 10 UF) en **todas** las columnas. Sin filas vacias de padding; la altura uniforme la garantiza el contenedor de la tabla.
   - Tabla de coberturas (`.coverages-table`) separada visualmente de la tabla de precios.

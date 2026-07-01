@@ -37,6 +37,7 @@ Los archivos canonicos viven en `app/schemas/`; la carpeta `schemas/` en la raiz
 - **Rol → badge PDF:** en Streamlit el rol por cotización (Básico / Equilibrado / Pro) alimenta `offer_tier_overrides` al generar el PDF; no hay columna Tier separada en la UI. En modo 4 cotizaciones, la cuarta oferta usa color café.
 - **RC en exceso:** `rc_exceso` se extrae y compara como una capa adicional separada de la RC base; solo aplica cuando el documento la declara explícitamente.
 - **Equivalencias UF:** `_analysis_to_render` calcula los valores CLP de `0`, `3`, `5` y `10 UF` usando `context.uf_value_used`; la plantilla no contiene montos fijos.
+- **Póliza actual en PDF:** `current_policy.deductible_uf` alimenta la celda de deducible (`Mismo de hoy · X UF`); `current_policy.monthly_premium_uf` alimenta `UF/mes`; `current_policy.monthly_premium_clp` alimenta `CLP/mes`. El deducible nunca debe aparecer como prima mensual.
 - **Pie editable:** `analysis.footer` permite editar `broker_name` y `broker_website`; `_analysis_to_render` los propaga al branding y a la firma inferior.
 
 ## Principio clave

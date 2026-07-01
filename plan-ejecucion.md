@@ -342,6 +342,7 @@ El repositorio ya implementa una version Streamlit desplegable en Railway, disti
 | 11 cuotas | Prompts + PDF con **Cuotas base: 11 cuotas**; busqueda explicita en extraccion |
 | RC en exceso | Campo `rc_exceso` separado de RC base en extraccion, analisis, editor y PDF |
 | Equivalencias UF | Referencias `0 / 3 / 5 / 10 UF` calculadas dinamicamente con la UF canonica de cada corrida |
+| Poliza actual | En `Tu seguro hoy`, deducible y prima mensual se muestran separados: `Deducible = Mismo de hoy · X UF`, `UF/mes = prima mensual UF`, `CLP/mes = prima mensual CLP` |
 | Pie del corredor | Editable en Streamlit y consumido por el renderer (`broker_name`, `broker_website`) |
 | Regenerar PDF | Se puede editar y volver a generar durante la misma sesion; no requiere reiniciar Streamlit |
 
