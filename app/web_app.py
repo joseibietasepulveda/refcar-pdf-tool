@@ -1242,13 +1242,16 @@ def main():
                         fetch_online=True,
                     )
                 except UFReferenceError as exc:
-                    _set_run_failed("uf", exc)
-                    _write_draft_state()
-                    st.error(
+                    uf_ref = None
+                    st.warning(
                         f"No se pudo obtener la UF automáticamente: {exc}. "
-                        "Activa **Ingresar UF manualmente** en la barra lateral e intenta de nuevo."
+                        "Continuaré con la UF que aparezca en los PDFs; si quieres fijarla, "
+                        "activa **Ingresar UF manualmente** en la barra lateral."
                     )
-                    st.stop()
+                if uf_ref is None:
+                    st.warning(
+                        "No hay una UF automática disponible. Continuaré con la UF detectada en los documentos."
+                    )
 
                 st.session_state.uf_ref = uf_ref
                 _write_draft_state()

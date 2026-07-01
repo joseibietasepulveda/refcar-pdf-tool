@@ -18,8 +18,8 @@ class UFReferenceError(Exception):
 
 _MINDICADOR_UF_URL = "https://mindicador.cl/api/uf"
 _UF_CACHE_PATH = RUNS_DIR / "uf_reference_cache.json"
-_DEFAULT_TIMEOUT_S = 8.0
-_DEFAULT_RETRIES = 4
+_DEFAULT_TIMEOUT_S = 5.0
+_DEFAULT_RETRIES = 3
 
 
 def fetch_uf_latest_mindicador(
@@ -139,7 +139,8 @@ def resolve_reference_uf(
     2. Si `fetch_online` es True, consulta mindicador.cl.
     3. Si la consulta falla, usa `UF_REFERENCE_CLP` / `UF_REFERENCE_DATE`
        como respaldo si están configuradas en el entorno.
-    4. None — el modelo infiere desde los PDFs (comportamiento anterior).
+    4. Cache local si existe.
+    5. None — el modelo infiere desde los PDFs (comportamiento anterior).
     """
     if manual_clp is not None and manual_clp > 0:
         d = (manual_date or date.today().isoformat())[:10]
@@ -158,7 +159,7 @@ def resolve_reference_uf(
             cache_clp, cache_date = _read_uf_cache()
             if cache_clp is not None:
                 return cache_clp, cache_date or date.today().isoformat()
-            raise
+            return None
 
     env_clp, env_date = uf_from_env()
     if env_clp is not None:
