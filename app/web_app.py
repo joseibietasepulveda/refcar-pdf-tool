@@ -1327,17 +1327,25 @@ def main():
             detail = ""
             if isinstance(analysis, dict):
                 detail = analysis.get("message") or analysis.get("raw") or analysis.get("error") or ""
-            st.error(
-                "El análisis no se generó correctamente. Vuelve a cargar los PDFs e intenta de nuevo."
-                + (f"\n\n{detail}" if detail else "")
-            )
+            if st.session_state.resolved_extractions:
+                st.error(
+                    "El análisis final no se generó correctamente, pero las extracciones de los PDFs "
+                    "quedaron guardadas. No necesitas volver a cargar los archivos."
+                    + (f"\n\n{detail}" if detail else "")
+                )
+            else:
+                st.error(
+                    "El análisis no se generó correctamente. Vuelve a cargar los PDFs e intenta de nuevo."
+                    + (f"\n\n{detail}" if detail else "")
+                )
             if isinstance(analysis, dict) and analysis.get("raw"):
                 with st.expander("Detalle del error"):
                     st.code(str(analysis.get("raw", analysis))[:2000])
             if st.session_state.resolved_extractions:
                 st.info(
                     "Las extracciones de los PDFs quedaron guardadas en esta sesión. "
-                    "Puedes reintentar solo el análisis final sin volver a cargar los archivos."
+                    "Puedes reintentar solo el análisis final sin volver a cargar los archivos. "
+                    "Si el error fue límite temporal de OpenRouter, espera 1-2 minutos antes de reintentar."
                 )
                 if st.button("Reintentar análisis", type="primary"):
                     _retry_analysis_from_current_extractions()

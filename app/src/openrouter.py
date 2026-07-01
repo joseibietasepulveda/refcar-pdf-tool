@@ -8,6 +8,9 @@ from .metrics import CallMetrics
 
 DEFAULT_ANALYSIS_MAX_TOKENS = 16384
 PREFERRED_ANALYSIS_MAX_TOKENS = 65536
+DEFAULT_MAX_ATTEMPTS = 3
+RATE_LIMIT_MAX_ATTEMPTS = 5
+RATE_LIMIT_BACKOFF_SECONDS = (8, 18, 35, 55)
 
 
 class OpenRouterClient:
@@ -93,6 +96,27 @@ class OpenRouterClient:
         text = cls._error_text(error_detail).lower()
         return "rate_limit_exceeded" in text or '"code": 429' in text or "'code': 429" in text
 
+    @staticmethod
+    def _is_rate_limit_text(text: str) -> bool:
+        lowered = text.lower()
+        return "rate_limit_exceeded" in lowered or "rate limit" in lowered or "code': 429" in lowered or '"code": 429' in lowered
+
+    @staticmethod
+    def _rate_limit_message(step_name: str) -> str:
+        return (
+            f"OpenRouter alcanzó un límite temporal de uso en el paso '{step_name}'. "
+            "Las extracciones ya quedaron guardadas; espera 1-2 minutos y presiona "
+            "**Reintentar análisis**. Si vuelve a pasar seguido, normalmente es límite temporal "
+            "del proveedor/modelo, no un problema de los PDFs."
+        )
+
+    @staticmethod
+    def _retry_wait_seconds(attempt: int, *, rate_limited: bool) -> int:
+        if rate_limited:
+            idx = min(max(attempt - 1, 0), len(RATE_LIMIT_BACKOFF_SECONDS) - 1)
+            return RATE_LIMIT_BACKOFF_SECONDS[idx]
+        return 2 * attempt
+
     def _next_analysis_max_tokens(self, current: int) -> int | None:
         """Increase a conservative fallback ceiling if the catalog request was unavailable."""
         model_limit = self._max_completion_tokens.get(self.model, PREFERRED_ANALYSIS_MAX_TOKENS)
@@ -154,17 +178,19 @@ class OpenRouterClient:
         total_elapsed = 0.0
         resolved_model = ""
 
-        for attempt in range(1, 4):
+        max_attempts = RATE_LIMIT_MAX_ATTEMPTS
+
+        for attempt in range(1, max_attempts + 1):
             start = time.perf_counter()
             try:
                 resp = self._client.post("/chat/completions", json=payload)
             except httpx.TimeoutException as exc:
                 last_error = RuntimeError(
-                    f"Timeout de OpenRouter en paso '{step_name}' (intento {attempt}/3). "
+                    f"Timeout de OpenRouter en paso '{step_name}' (intento {attempt}/{max_attempts}). "
                     "El análisis puede tardar; vuelve a intentar."
                 )
-                if attempt < 3:
-                    time.sleep(2 * attempt)
+                if attempt < DEFAULT_MAX_ATTEMPTS:
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise last_error from exc
             except httpx.HTTPError as exc:
@@ -184,11 +210,17 @@ class OpenRouterClient:
                         error_msg = str(err) if err else resp.text[:800]
                 except RuntimeError:
                     error_msg = (resp.text or "")[:800]
+                if resp.status_code == 429 or self._is_rate_limit_text(error_msg):
+                    last_error = RuntimeError(self._rate_limit_message(step_name))
+                    if attempt < max_attempts:
+                        time.sleep(self._retry_wait_seconds(attempt, rate_limited=True))
+                        continue
+                    raise last_error
                 last_error = RuntimeError(
                     f"OpenRouter error ({resp.status_code}) en paso '{step_name}': {error_msg}"
                 )
-                if resp.status_code in (429, 502, 503, 504) and attempt < 3:
-                    time.sleep(2 * attempt)
+                if resp.status_code in (502, 503, 504) and attempt < DEFAULT_MAX_ATTEMPTS:
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise last_error
 
@@ -196,8 +228,8 @@ class OpenRouterClient:
                 data = self._parse_response_json(resp, step_name)
             except RuntimeError as exc:
                 last_error = exc
-                if attempt < 3:
-                    time.sleep(2 * attempt)
+                if attempt < DEFAULT_MAX_ATTEMPTS:
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise
 
@@ -220,10 +252,10 @@ class OpenRouterClient:
             if not choices:
                 last_error = RuntimeError(
                     f"OpenRouter no devolvió alternativas en paso '{step_name}' "
-                    f"(intento {attempt}/3)."
+                    f"(intento {attempt}/{max_attempts})."
                 )
-                if attempt < 3:
-                    time.sleep(2 * attempt)
+                if attempt < DEFAULT_MAX_ATTEMPTS:
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise last_error
 
@@ -244,20 +276,26 @@ class OpenRouterClient:
                     f"(finish_reason='length', límite={current_limit or 'del proveedor'}, "
                     f"modelo={self.model!r})."
                 )
-                if attempt < 3 and next_limit:
+                if attempt < DEFAULT_MAX_ATTEMPTS and next_limit:
                     payload["max_tokens"] = next_limit
-                    time.sleep(2 * attempt)
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise last_error
 
             if finish_reason == "error" or choice.get("error"):
                 error_detail = choice.get("error") or native_finish_reason or "sin detalle"
+                if self._is_embedded_rate_limit(error_detail):
+                    last_error = RuntimeError(self._rate_limit_message(step_name))
+                    if attempt < max_attempts:
+                        time.sleep(self._retry_wait_seconds(attempt, rate_limited=True))
+                        continue
+                    raise last_error
                 last_error = RuntimeError(
                     f"OpenRouter devolvió un error dentro de la respuesta en paso '{step_name}': "
                     f"{self._error_text(error_detail)}"
                 )
-                if attempt < 3 and self._is_embedded_rate_limit(error_detail):
-                    time.sleep(4 * attempt)
+                if attempt < DEFAULT_MAX_ATTEMPTS:
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise last_error
 
@@ -270,13 +308,13 @@ class OpenRouterClient:
                 )
                 last_error = RuntimeError(
                     f"OpenRouter devolvió JSON incompleto o inválido en paso '{step_name}' "
-                    f"(intento {attempt}/3, finish_reason={finish_reason!r}, "
+                    f"(intento {attempt}/{max_attempts}, finish_reason={finish_reason!r}, "
                     f"native_finish_reason={native_finish_reason!r})."
                 )
-                if attempt < 3:
+                if attempt < DEFAULT_MAX_ATTEMPTS:
                     if next_limit:
                         payload["max_tokens"] = next_limit
-                    time.sleep(2 * attempt)
+                    time.sleep(self._retry_wait_seconds(attempt, rate_limited=False))
                     continue
                 raise last_error
 
@@ -296,11 +334,8 @@ class OpenRouterClient:
             return content, metrics
 
         if last_error:
-            if "rate_limit_exceeded" in str(last_error).lower():
-                raise RuntimeError(
-                    f"OpenRouter alcanzó el límite temporal de uso en paso '{step_name}'. "
-                    "La app ya reintentó automáticamente; espera unos segundos y vuelve a intentar."
-                ) from last_error
+            if self._is_rate_limit_text(str(last_error)):
+                raise RuntimeError(self._rate_limit_message(step_name)) from last_error
             raise last_error
         raise RuntimeError(f"OpenRouter falló en paso '{step_name}' sin detalle.")
 
