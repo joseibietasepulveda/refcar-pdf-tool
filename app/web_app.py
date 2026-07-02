@@ -29,10 +29,9 @@ from src.run_store import save_run
 from src.uf_reference import UFReferenceError, resolve_reference_uf
 from src.number_utils import parse_chilean_number
 from src.prompts import build_analysis_prompt
-from src.deductible_pricing import (
-    available_any_deductibles_for_paths,
-    enforce_common_deductible,
-)
+from src.deductible_pricing import enforce_common_deductible
+
+DEDUCTIBLE_OPTIONS_UF = [0.0, 3.0, 5.0, 10.0, 15.0, 20.0]
 
 ROLE_DISPLAY = {
     "current_policy": "Póliza actual",
@@ -1253,44 +1252,18 @@ def main():
         elif current_count > 1:
             st.info("Marca como máximo un archivo como póliza actual.")
 
-        all_deductibles: list[float] = []
         if roles_ok:
             st.subheader("3) Deducible de comparación")
-            quote_paths_ordered = [active_paths[i] for i in quote_indices]
-            cache_key = tuple(str(p) for p in quote_paths_ordered)
-            if st.session_state.get("_common_ded_cache_key") != cache_key:
-                with st.spinner("Detectando deducibles disponibles en las cotizaciones..."):
-                    try:
-                        all_deductibles, _coverage = available_any_deductibles_for_paths(quote_paths_ordered)
-                    except Exception:
-                        all_deductibles = []
-                st.session_state._common_ded_cache_key = cache_key
-                st.session_state._common_ded_options = all_deductibles
-            else:
-                all_deductibles = st.session_state.get("_common_ded_options", [])
-
-            if all_deductibles:
-                stored_target = st.session_state.get("target_deductible_uf")
-                default_ded = (
-                    stored_target
-                    if stored_target in all_deductibles
-                    else (5.0 if 5.0 in all_deductibles else all_deductibles[0])
-                )
-
-                selected_ded = st.selectbox(
-                    "Todas las columnas del PDF se compararán a este mismo deducible "
-                    "(detectado automáticamente en las tablas de precios de las cotizaciones).",
-                    options=all_deductibles,
-                    index=all_deductibles.index(default_ded),
-                    format_func=lambda v: f"{v:g} UF",
-                )
-                st.session_state.target_deductible_uf = selected_ded
-            else:
-                st.session_state.target_deductible_uf = None
-                st.caption(
-                    "No se detectó una tabla de precios homologable en las cotizaciones; "
-                    "el comparativo usará el deducible que determine el análisis por cotización."
-                )
+            stored_target = st.session_state.get("target_deductible_uf")
+            default_ded = stored_target if stored_target in DEDUCTIBLE_OPTIONS_UF else 5.0
+            selected_ded = st.selectbox(
+                "Todas las columnas del PDF se compararán a este mismo deducible "
+                "(se buscará en la tabla de precios de cada cotización al iniciar la extracción).",
+                options=DEDUCTIBLE_OPTIONS_UF,
+                index=DEDUCTIBLE_OPTIONS_UF.index(default_ded),
+                format_func=lambda v: f"{v:g} UF",
+            )
+            st.session_state.target_deductible_uf = selected_ded
 
         run_clicked = st.button(
             "4) Iniciar Extracción Documental",
