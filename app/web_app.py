@@ -1255,7 +1255,7 @@ def main():
 
         all_deductibles: list[float] = []
         if roles_ok:
-            st.subheader("2.1) Deducible de comparación")
+            st.subheader("3) Deducible de comparación")
             quote_paths_ordered = [active_paths[i] for i in quote_indices]
             cache_key = tuple(str(p) for p in quote_paths_ordered)
             if st.session_state.get("_common_ded_cache_key") != cache_key:
@@ -1293,7 +1293,7 @@ def main():
                 )
 
         run_clicked = st.button(
-            "3) Iniciar Extracción Documental",
+            "4) Iniciar Extracción Documental",
             type="primary",
             disabled=not roles_ok or winner_idx is None or st.session_state.get("run_status") == "running",
         )
@@ -1417,7 +1417,7 @@ def main():
     # STEP 2: ORDERLY FORM EDITOR & INSTANT PDF GENERATOR
     # ------------------------------------------------------------------
     elif st.session_state.step == "editor":
-        st.subheader("3) Editar Datos de la Propuesta")
+        st.subheader("5) Editar Datos de la Propuesta")
         st.caption(
             "El JSON se ha estructurado. Modifica los campos que desees en los acordeones a continuación "
             "y haz clic en **Generar PDF** para previsualizar o descargar el comparativo al instante sin volver a llamar a OpenRouter."
@@ -1669,7 +1669,7 @@ def main():
         # GENERATE AND DOWNLOAD REFCAR PDF
         # ------------------------------------------------------------------
         st.divider()
-        st.subheader("4) Generar Comparativo en PDF")
+        st.subheader("6) Generar Comparativo en PDF")
 
         col_gen_1, col_gen_2 = st.columns([1, 4])
         with col_gen_1:
