@@ -127,6 +127,7 @@ def _analysis_to_render(
         render_current = {
             "insurer": _dv(current.get('insurer')),
             "product_name": _dv(current.get('product_name')),
+            "product_name_font_size": _product_name_font_size(_dv(current.get('product_name'))),
             "header_label": f"{_dv(current.get('insurer'))} {_dv(current.get('product_name'))}".strip(),
             "deductible_label": f"{_fmt_uf(current_ded)} UF",
             "monthly_premium_uf_label": f"UF {_fmt_uf(current_premium_uf)}/mes",
@@ -202,24 +203,6 @@ def _analysis_to_render(
             or (not recommended_id and tier_matches_selection)
         )
 
-        ded_options = []
-        for opt in offer.get("deductible_options", []):
-            ded_uf = opt.get("deductible_uf", "?")
-            prem_uf = opt.get("monthly_premium_uf", "?")
-            prem_clp = opt.get("monthly_premium_clp")
-            if prem_clp is None and uf_val and prem_uf != "?":
-                try:
-                    prem_clp = int(round(float(str(prem_uf).replace(",", ".")) * uf_val))
-                except (ValueError, TypeError):
-                    prem_clp = None
-            ded_options.append({
-                "deductible_label": f"{_fmt_uf(ded_uf)} UF",
-                "premium_label": f"UF {_fmt_uf(prem_uf)}/mes",
-                "premium_clp_label": f"~${_fmt_clp(prem_clp)}" if prem_clp else "",
-                "is_same_as_current": opt.get("is_same_as_current", False),
-                "is_proposed": opt.get("is_proposed", False),
-            })
-
         extra_highlights = [_dv(eh) for eh in offer.get("extra_highlights", []) if _dv(eh)]
 
         raw_tier = _dv(offer.get("commercial_tier"))
@@ -253,6 +236,7 @@ def _analysis_to_render(
             "badge_label": badge_label,
             "insurer": _dv(offer.get('insurer')),
             "product_name": _dv(offer.get('product_name')),
+            "product_name_font_size": _product_name_font_size(_dv(offer.get('product_name'))),
             "product_title": f"{_dv(offer.get('insurer'))} {_dv(offer.get('product_name'))}".strip(),
             "monthly_premium_uf_label": f"UF {_fmt_uf(_dv(offer.get('monthly_premium_uf')))}/mes",
             "monthly_premium_clp_label": f"~${_fmt_clp(_dv(offer.get('monthly_premium_clp')))} mensual",
@@ -271,8 +255,6 @@ def _analysis_to_render(
             "assistance": assistance_display,
             "asiento_pasajeros": _coverage_display(offer.get("asiento_pasajeros")),
             "defensa_penal": _coverage_display(offer.get("defensa_penal")),
-            "deductible_options_title": "OPCIONES DE DEDUCIBLE" if ded_options else "",
-            "deductible_options": ded_options,
             "extra_highlights_title": "",
             "extra_highlights": [],
             "summary_note": _dv(offer.get("editorial_summary", "")),
@@ -440,6 +422,18 @@ def _fmt_clp(val) -> str:
         return str(val)
 
 
+def _product_name_font_size(name: str) -> str:
+    """Scale down the product name font so long names wrap instead of being cut off."""
+    length = len(name or "")
+    if length <= 16:
+        return "15.5px"
+    if length <= 24:
+        return "13.5px"
+    if length <= 34:
+        return "12px"
+    return "10.5px"
+
+
 def _build_deductible_payment_label(ded_uf: str, installments: str, payment_method: str) -> str:
     """Build 'Deducible X UF · N cuotas METHOD' without duplication."""
     parts = [f"Deducible {_fmt_uf(ded_uf)} UF"]
@@ -459,7 +453,8 @@ def _build_deductible_payment_label(ded_uf: str, installments: str, payment_meth
         except (ValueError, TypeError):
             parts.append(f"{inst_clean} cuotas")
 
-    if method_clean and not has_method_in_inst:
+    method_is_cuotas_duplicate = bool(re.search(r"\bcuotas?\b", method_clean, re.IGNORECASE))
+    if method_clean and not has_method_in_inst and not method_is_cuotas_duplicate:
         method_upper = method_clean.upper()
         if method_upper not in ("", "N/A", "NO ESPECIFICADO", "DESCONOCIDO"):
             parts.append(method_upper)

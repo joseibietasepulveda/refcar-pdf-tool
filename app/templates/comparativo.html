@@ -175,7 +175,7 @@ body {
 
 /* COLUMN HEADER */
 .col-header {
-  height: 70px;
+  min-height: 70px;
   padding: 14px 12px;
   color: #ffffff;
   display: block;
@@ -214,9 +214,9 @@ body {
   font-size: 15.5px;
   font-weight: 800;
   color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: break-word;
   line-height: 1.15;
   display: block;
 }
@@ -469,7 +469,7 @@ body {
           <div class="col-header actual">
             <div class="col-badge">Tu Seguro Hoy</div>
             <div class="col-insurer">{{ current_policy.insurer }}</div>
-            <div class="col-product">{{ current_policy.product_name }}</div>
+            <div class="col-product" style="font-size: {{ current_policy.product_name_font_size }};">{{ current_policy.product_name }}</div>
           </div>
           <div class="pricing-section actual">
             <table class="pricing-table">
@@ -519,7 +519,7 @@ body {
           <div class="col-header {{ offer.column_theme }}">
             <div class="col-badge">{{ offer.badge_label }}</div>
             <div class="col-insurer">{{ offer.insurer }}</div>
-            <div class="col-product">{{ offer.product_name }}</div>
+            <div class="col-product" style="font-size: {{ offer.product_name_font_size }};">{{ offer.product_name }}</div>
             {% if offer.recommended and offer.recommended_badge_label %}
               <span class="badge-rec">RECOMENDADA</span>
             {% endif %}
@@ -534,24 +534,11 @@ body {
                 </tr>
               </thead>
               <tbody>
-                {% if offer.deductible_options %}
-                  {% for opt in offer.deductible_options[:4] %}
-                  <tr class="{% if opt.is_proposed %}proposed{% elif opt.is_same_as_current %}highlighted{% endif %}">
-                    <td class="ded-label">
-                      {{ opt.deductible_label }}
-                      {% if opt.is_proposed %} (PROPUESTA){% endif %}
-                    </td>
-                    <td class="val-uf">{{ opt.premium_label }}</td>
-                    <td class="val-clp">{{ opt.premium_clp_label }}</td>
-                  </tr>
-                  {% endfor %}
-                {% else %}
-                  <tr class="proposed">
-                    <td class="ded-label">{{ offer.deductible_payment_label }}</td>
-                    <td class="val-uf">{{ offer.monthly_premium_uf_label }}</td>
-                    <td class="val-clp">{{ offer.monthly_premium_clp_label }}</td>
-                  </tr>
-                {% endif %}
+                <tr class="proposed">
+                  <td class="ded-label">{{ offer.deductible_payment_label }}</td>
+                  <td class="val-uf">{{ offer.monthly_premium_uf_label }}</td>
+                  <td class="val-clp">{{ offer.monthly_premium_clp_label }}</td>
+                </tr>
               </tbody>
             </table>
           </div>

@@ -30,7 +30,7 @@ from src.uf_reference import UFReferenceError, resolve_reference_uf
 from src.number_utils import parse_chilean_number
 from src.prompts import build_analysis_prompt
 from src.deductible_pricing import (
-    available_common_deductibles_for_paths,
+    available_any_deductibles_for_paths,
     enforce_common_deductible,
 )
 
@@ -926,6 +926,7 @@ def _persist_uploaded_files(uploaded_files) -> list[Path]:
     st.session_state.target_deductible_uf = None
     st.session_state.pop("_common_ded_cache_key", None)
     st.session_state.pop("_common_ded_options", None)
+    st.session_state.pop("_common_ded_coverage", None)
     _clear_generated_pdf_state()
     if st.session_state.get("run_status") != "running":
         _reset_run_status()
@@ -1252,40 +1253,51 @@ def main():
         elif current_count > 1:
             st.info("Marca como máximo un archivo como póliza actual.")
 
-        common_deductibles: list[float] = []
+        all_deductibles: list[float] = []
         if roles_ok:
             st.subheader("2.1) Deducible de comparación")
             quote_paths_ordered = [active_paths[i] for i in quote_indices]
             cache_key = tuple(str(p) for p in quote_paths_ordered)
             if st.session_state.get("_common_ded_cache_key") != cache_key:
-                try:
-                    common_deductibles = available_common_deductibles_for_paths(quote_paths_ordered)
-                except Exception:
-                    common_deductibles = []
+                with st.spinner("Detectando deducibles disponibles en las cotizaciones..."):
+                    try:
+                        all_deductibles, ded_coverage = available_any_deductibles_for_paths(quote_paths_ordered)
+                    except Exception:
+                        all_deductibles, ded_coverage = [], {}
                 st.session_state._common_ded_cache_key = cache_key
-                st.session_state._common_ded_options = common_deductibles
+                st.session_state._common_ded_options = all_deductibles
+                st.session_state._common_ded_coverage = ded_coverage
             else:
-                common_deductibles = st.session_state.get("_common_ded_options", [])
+                all_deductibles = st.session_state.get("_common_ded_options", [])
+                ded_coverage = st.session_state.get("_common_ded_coverage", {})
 
-            if common_deductibles:
+            if all_deductibles:
+                total_quotes = len(quote_paths_ordered)
                 stored_target = st.session_state.get("target_deductible_uf")
                 default_ded = (
                     stored_target
-                    if stored_target in common_deductibles
-                    else (5.0 if 5.0 in common_deductibles else common_deductibles[0])
+                    if stored_target in all_deductibles
+                    else (5.0 if 5.0 in all_deductibles else all_deductibles[0])
                 )
+
+                def _format_ded(v: float) -> str:
+                    n = ded_coverage.get(v, 0)
+                    if n and n < total_quotes:
+                        return f"{v:g} UF (disponible en {n} de {total_quotes} cotizaciones)"
+                    return f"{v:g} UF"
+
                 selected_ded = st.selectbox(
                     "Todas las columnas del PDF se compararán a este mismo deducible "
                     "(detectado automáticamente en las tablas de precios de las cotizaciones).",
-                    options=common_deductibles,
-                    index=common_deductibles.index(default_ded),
-                    format_func=lambda v: f"{v:g} UF",
+                    options=all_deductibles,
+                    index=all_deductibles.index(default_ded),
+                    format_func=_format_ded,
                 )
                 st.session_state.target_deductible_uf = selected_ded
             else:
                 st.session_state.target_deductible_uf = None
                 st.caption(
-                    "No se detectó una tabla de precios homologable en todas las cotizaciones; "
+                    "No se detectó una tabla de precios homologable en las cotizaciones; "
                     "el comparativo usará el deducible que determine el análisis por cotización."
                 )
 
@@ -1644,47 +1656,6 @@ def main():
                 with col_o_summary:
                     o_ed_sum = st.text_area(f"En Simple (Tesis Comercial) #{o_idx+1}", _get_val(offer.get("editorial_summary")), height=120, key=f"o_ed_sum_{o_idx}")
                     _set_val(offer["editorial_summary"], o_ed_sum)
-
-                # Deductible Options table (for offer deductible list)
-                st.markdown(f"##### Tabla de Deducibles Alternativos (Oferta #{o_idx+1})")
-                ded_opts = offer.setdefault("deductible_options", [])
-
-                # We render 4 rows
-                for row_idx in range(4):
-                    row_cols = st.columns(5)
-                    if row_idx < len(ded_opts):
-                        opt = ded_opts[row_idx]
-                    else:
-                        opt = {"deductible_uf": 0.0, "monthly_premium_uf": 0.0, "monthly_premium_clp": 0, "is_same_as_current": False, "is_proposed": False}
-
-                    with row_cols[0]:
-                        d_uf = st.number_input(f"Ded UF (Fila {row_idx+1}, #{o_idx+1})", value=float(opt.get("deductible_uf", 0.0)), step=1.0, key=f"ded_uf_opt_{o_idx}_{row_idx}")
-                    with row_cols[1]:
-                        p_uf = st.number_input(f"Prem UF (Fila {row_idx+1}, #{o_idx+1})", value=float(opt.get("monthly_premium_uf", 0.0)), step=0.01, key=f"prem_uf_opt_{o_idx}_{row_idx}")
-                    with row_cols[2]:
-                        p_clp = st.number_input(f"Prem CLP (Fila {row_idx+1}, #{o_idx+1})", value=int(opt.get("monthly_premium_clp", 0)), step=100, key=f"prem_clp_opt_{o_idx}_{row_idx}")
-                    with row_cols[3]:
-                        same_label = (
-                            f"Mismo ded. hoy (Fila {row_idx+1}, #{o_idx+1})"
-                            if has_current_policy
-                            else f"Deducible referencia (Fila {row_idx+1}, #{o_idx+1})"
-                        )
-                        same_curr = st.checkbox(same_label, value=bool(opt.get("is_same_as_current", False)), key=f"same_curr_opt_{o_idx}_{row_idx}")
-                    with row_cols[4]:
-                        prop = st.checkbox(f"Propuesta (Fila {row_idx+1}, #{o_idx+1})", value=bool(opt.get("is_proposed", False)), key=f"prop_opt_{o_idx}_{row_idx}")
-
-                    new_opt = {
-                        "deductible_uf": d_uf,
-                        "monthly_premium_uf": p_uf,
-                        "monthly_premium_clp": p_clp,
-                        "is_same_as_current": same_curr,
-                        "is_proposed": prop
-                    }
-                    if row_idx < len(ded_opts):
-                        ded_opts[row_idx] = new_opt
-                    else:
-                        if d_uf > 0 or p_uf > 0:
-                            ded_opts.append(new_opt)
 
         # 4. Recomendación y Pie
         with st.expander("Recomendación, Insight Principal y Firma", expanded=False):

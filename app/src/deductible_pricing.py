@@ -240,10 +240,40 @@ def available_common_deductibles(
     return sorted(common)
 
 
-def available_common_deductibles_for_paths(
-    quote_paths: list[Path], preferred_installments: int = 11
+def deductible_coverage_by_value(
+    quote_pdf_texts: list[str], preferred_installments: int = 11
+) -> dict[float, int]:
+    """For each deductible found in ANY quote, count in how many quotes it appears.
+
+    Useful to offer the broker every deductible that at least one insurer
+    actually quotes (e.g. 0/15/20 UF only offered by one company), instead of
+    hiding it just because not every quote in the set has it.
+    """
+    coverage: dict[float, int] = {}
+    for text in quote_pdf_texts:
+        rows = parse_pricing_rows_from_text(text)
+        price_map = build_deductible_price_map(rows, preferred_installments)
+        for ded in price_map:
+            coverage[ded] = coverage.get(ded, 0) + 1
+    return coverage
+
+
+def available_any_deductibles(
+    quote_pdf_texts: list[str], preferred_installments: int = 11
 ) -> list[float]:
-    """Convenience wrapper: read each quote PDF and compute common deductibles."""
+    """Return the union of deductibles (UF) found in any of the given quotes."""
+    return sorted(deductible_coverage_by_value(quote_pdf_texts, preferred_installments).keys())
+
+
+def available_any_deductibles_for_paths(
+    quote_paths: list[Path], preferred_installments: int = 11
+) -> tuple[list[float], dict[float, int]]:
+    """Convenience wrapper: read each quote PDF and compute the union of deductibles.
+
+    Returns `(sorted_deductibles, coverage_by_value)` where `coverage_by_value`
+    tells how many of the given quotes actually offer that deductible, so the
+    UI can warn when a chosen deductible isn't available for every offer.
+    """
     from .pdf_reader import read_pdf
 
     texts: list[str] = []
@@ -252,7 +282,8 @@ def available_common_deductibles_for_paths(
             texts.append(read_pdf(Path(path))["text"])
         except Exception:
             texts.append("")
-    return available_common_deductibles(texts, preferred_installments)
+    coverage = deductible_coverage_by_value(texts, preferred_installments)
+    return sorted(coverage.keys()), coverage
 
 
 def _set_derived_value(target: dict, key: str, value) -> None:
@@ -335,17 +366,6 @@ def enforce_common_deductible(
         _set_derived_value(offer, "monthly_premium_uf", match.monthly_premium_uf)
         _set_derived_value(offer, "monthly_premium_clp", clp_value)
         _set_derived_value(offer, "installments", match.installments)
-
-        for opt in offer.get("deductible_options") or []:
-            if not isinstance(opt, dict):
-                continue
-            try:
-                opt_ded = round(float(str(opt.get("deductible_uf")).replace(",", ".")), 2)
-            except (TypeError, ValueError):
-                continue
-            if opt_ded == match.deductible_uf:
-                opt["monthly_premium_uf"] = match.monthly_premium_uf
-                opt["monthly_premium_clp"] = clp_value
 
         if current_clp is not None:
             _set_derived_value(offer, "monthly_savings_vs_current_clp", current_clp - clp_value)
