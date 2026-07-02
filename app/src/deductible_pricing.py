@@ -1,6 +1,6 @@
 """Deterministic parser for deductible/premium pricing tables.
 
-This module never hardcodes logic per insurer. It only recognizes two generic
+This module never hardcodes logic per insurer. It only recognizes generic
 *structural* shapes that repeatedly show up in the markdown tables produced by
 `pdf_reader.convert_tables_to_markdown` (built from pdfplumber's table
 extraction), regardless of which insurer issued the PDF:
@@ -12,11 +12,17 @@ extraction), regardless of which insurer issued the PDF:
   by repeating blocks of rows, one block per payment modality, where the first
   row states the number of installments (``"11cuotas"``), the next row the CLP
   premium (``"$46.112"``) and the next row the UF premium (``"UF 1,13"``).
+- **named-deductible-rows table**: one row *per deductible* (e.g.
+  ``"DEDUCIBLE UF5 UF 12,75"`` or ``"SIN DEDUCIBLE UF 15,85"``), with the
+  remaining cells each holding a ``"UF <prima> $ <clp>"`` bundle for a
+  different installment plan. Which cell corresponds to which installment
+  count is inferred from ``"(HASTA N CUOTAS)"`` labels found anywhere in the
+  table's header rows, matched in left-to-right order.
 
-If a PDF's pricing table does not match either shape, the parser simply
-returns no rows for it and callers must fall back to the LLM-provided values.
-This keeps the tool free of per-insurer special cases while still fixing the
-cases we can recognize deterministically (at zero extra LLM cost).
+If a PDF's pricing table does not match any of these shapes, the parser
+simply returns no rows for it and callers must fall back to the LLM-provided
+values. This keeps the tool free of per-insurer special cases while still
+fixing the cases we can recognize deterministically (at zero extra LLM cost).
 """
 
 from __future__ import annotations
@@ -42,6 +48,12 @@ _COMPACT_CELL_RE = re.compile(
 _INSTALLMENTS_CELL_RE = re.compile(r"^(\d+)\s*cuotas?$", re.IGNORECASE)
 _CLP_CELL_RE = re.compile(r"^\$\s*([\d.,]+)$")
 _UF_CELL_RE = re.compile(r"^UF\s*([\d.,]+)$", re.IGNORECASE)
+
+_NAMED_DEDUCTIBLE_ROW_RE = re.compile(
+    r"^(?:SIN\s+DEDUCIBLE|DEDUCIBLE\s+UF\s*([\d.,]+))", re.IGNORECASE
+)
+_PREMIUM_BUNDLE_RE = re.compile(r"UF\s*([\d.,]+)\s*\$\s*([\d.,]+)", re.IGNORECASE)
+_HASTA_CUOTAS_RE = re.compile(r"\(HASTA\s+(\d+)\s*CUOTAS?\)", re.IGNORECASE)
 
 
 def _to_float_cl(raw: str) -> float:
@@ -161,6 +173,47 @@ def _parse_grid_table(rows: list[list[str]]) -> list[PricingRow]:
     return results
 
 
+def _parse_named_deductible_rows_table(rows: list[list[str]]) -> list[PricingRow]:
+    """Parse tables where each row *is* a deductible, e.g. ``"DEDUCIBLE UF5 UF 12,75"``.
+
+    Each such row carries one or more ``"UF <prima> $ <clp>"`` bundles across
+    its remaining cells, one per installment plan. The installment count for
+    each bundle position is inferred from ``"(HASTA N CUOTAS)"`` labels found
+    anywhere in the table (usually in a jumbled header), matched in
+    left-to-right order against the bundles found in each deductible row.
+    """
+    header_blob = " ".join(" ".join(row) for row in rows[:4])
+    installment_labels = [int(n) for n in _HASTA_CUOTAS_RE.findall(header_blob)]
+    if not installment_labels:
+        return []
+
+    results: list[PricingRow] = []
+    for row in rows:
+        if not row or not row[0]:
+            continue
+        m = _NAMED_DEDUCTIBLE_ROW_RE.match(row[0].strip())
+        if not m:
+            continue
+        ded = _to_float_cl(m.group(1)) if m.group(1) else 0.0
+
+        bundles = [bm for cell in row[1:] if cell for bm in [_PREMIUM_BUNDLE_RE.search(cell)] if bm]
+        for idx, bm in enumerate(bundles):
+            if idx >= len(installment_labels):
+                break
+            try:
+                results.append(
+                    PricingRow(
+                        deductible_uf=ded,
+                        installments=installment_labels[idx],
+                        monthly_premium_uf=_to_float_cl(bm.group(1)),
+                        monthly_premium_clp=_to_int_clp(bm.group(2)),
+                    )
+                )
+            except (ValueError, TypeError):
+                continue
+    return results
+
+
 def parse_pricing_rows_from_text(pdf_text: str) -> list[PricingRow]:
     """Parse every markdown table found in `pdf_text` and return recognizable pricing rows.
 
@@ -179,6 +232,7 @@ def parse_pricing_rows_from_text(pdf_text: str) -> list[PricingRow]:
             return
         all_rows.extend(_parse_compact_table(current_table_rows))
         all_rows.extend(_parse_grid_table(current_table_rows))
+        all_rows.extend(_parse_named_deductible_rows_table(current_table_rows))
 
     for line in pdf_text.splitlines():
         stripped = line.strip()
