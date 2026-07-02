@@ -830,7 +830,7 @@ La etiqueta comercial de columna (badge) se deriva del **rol** en carga, no de u
 
 ## 9. Implementacion actual en el repositorio (`app/`)
 
-Esta seccion enlaza la especificacion funcional con el codigo vigente tras la adaptacion **plantilla Refcar** y el despliegue Railway (junio 2026). Referencia visual del cliente: `PLANTILLA_BASE_Detalle_Comparativo_Refcar.pdf`.
+Esta seccion enlaza la especificacion funcional con el codigo vigente tras la adaptacion **plantilla Refcar**, el despliegue Railway y la correccion visual de la columna **Tu seguro hoy** (julio 2026). Referencia visual del cliente: `PLANTILLA_BASE_Detalle_Comparativo_Refcar.pdf`.
 
 ### 9.1 Stack y ejecucion
 

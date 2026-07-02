@@ -480,10 +480,11 @@ La version entregable corre en `app/`, puede usarse localmente y esta preparada 
 - **Regeneracion:** durante una sesion abierta, el usuario puede editar campos y generar nuevos PDFs sin cerrar la terminal ni reiniciar Streamlit. Si hubo cambios de codigo y la vista no se refresca automaticamente, basta con recargar el navegador; reiniciar el lanzador queda como ultimo recurso.
 - **Git:** repositorio en la raiz conectado a GitHub/Railway; rama estable `main`. Claves, `.env`, corridas locales y PDFs de trabajo quedan excluidos via `.gitignore`.
 
-### PDF comparativo Refcar (ultima iteracion visual)
+### PDF comparativo Refcar (ultima iteracion visual, julio 2026)
 
 Alineado a la plantilla de referencia del cliente (`PLANTILLA_BASE_Detalle_Comparativo_Refcar.pdf`):
 
+- **Correccion vigente:** `Tu seguro hoy` separa deducible y prima mensual para evitar que `10 UF` se lea como `UF/mes`.
 - **Tipografia mas grande** y **layout denso** (menos espacio vacio entre filas y bloques).
 - **Layout PDF estable:** columnas y coberturas renderizadas como tablas HTML (WeasyPrint); zona «En simple» fijada al borde inferior de cada columna para mantener alineadas sus lineas superiores; footer separado al cierre de la pagina.
 - **Colores de columna por posicion de subida** (izquierda a derecha):
@@ -498,6 +499,17 @@ Alineado a la plantilla de referencia del cliente (`PLANTILLA_BASE_Detalle_Compa
 - El orden de columnas respeta el orden en que se suben las cotizaciones (la recomendada no salta al frente).
 
 Detalle tecnico completo en `especificacion-formato-comparativo.md` (seccion 9).
+
+### Correcciones de comparativo entre 4 cotizaciones (julio 2026)
+
+Tres correcciones deterministicas, sin costo adicional de tokens, enfocadas en el modo de comparacion entre 3-4 cotizaciones nuevas:
+
+- **Deducible homologado entre columnas:** nuevo modulo `app/src/deductible_pricing.py` parsea de forma deterministica (regex sobre las tablas markdown ya extraidas, sin depender del nombre de la aseguradora) la grilla de precios por deducible de cada cotizacion. En la pantalla de carga, un selector **Deducible de comparacion** muestra las opciones de deducible presentes en **todas** las cotizaciones subidas; tras el analisis, `enforce_common_deductible` fuerza esa misma comparacion en las 4 columnas y corrige el precio si el modelo lo desalineo (bug detectado en tablas grandes tipo grilla, por ejemplo HDI). Si una cotizacion no tiene una tabla reconocible para ese deducible, se deja el valor del modelo y se registra un aviso visible en el editor.
+- **Etiquetas de columna por rol:** `_map_tier_to_category_and_badge` en `pdf_generator.py` unifica los badges a `OPCIÓN ECONÓMICA` / `OPCIÓN EQUILIBRADA` / `OPCIÓN PREMIUM` segun el rol asignado (Básico / Equilibrado / Pro), reemplazando las etiquetas previas inconsistentes (`MEJOR OPERACIONAL`, `OPCIÓN INTERMEDIA`, etc.).
+- **Asistencia por rol:** la fila `Asistencia` de cada columna ya no muestra el texto literal extraido del PDF (`Full`, `Full Premium`); muestra `Básica` / `Equilibrada` / `Premium` segun el rol de esa columna, manteniendo el color MEJORA/IGUAL/PEOR cuando hay poliza actual.
+- **Captura de precio reforzada:** `extraction_domain_instructions.md` y `prompts.py` (extraccion y analisis) agregan una regla explicita de verificacion columna-por-columna para tablas grandes donde el deducible va en el encabezado y la prima en filas separadas por modalidad de pago, ademas de la correccion deterministica anterior que ya no depende de que el LLM acierte esa alineacion.
+
+Estas correcciones no agregan reglas por nombre de aseguradora: detectan patrones estructurales de tabla (fila compacta vs. grilla) y usan un *fallback* seguro al valor del modelo cuando no reconocen el formato.
 
 ## Criterios de aceptacion del MVP
 

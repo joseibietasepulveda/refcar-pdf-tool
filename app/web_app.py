@@ -29,6 +29,10 @@ from src.run_store import save_run
 from src.uf_reference import UFReferenceError, resolve_reference_uf
 from src.number_utils import parse_chilean_number
 from src.prompts import build_analysis_prompt
+from src.deductible_pricing import (
+    available_common_deductibles_for_paths,
+    enforce_common_deductible,
+)
 
 ROLE_DISPLAY = {
     "current_policy": "Póliza actual",
@@ -774,6 +778,27 @@ def _current_pdf_display_names() -> list[str]:
     return [path.name for path in paths]
 
 
+def _ordered_quote_pdf_texts() -> list[str]:
+    """Re-read quote PDFs from disk (cheap, no LLM cost) in offer-position order.
+
+    Position 1 = first quote uploaded (skipping the current-policy file, if any),
+    matching the same ordering used for `offer_tier_overrides` and `offers[].position`.
+    """
+    from src.pdf_reader import read_pdf
+
+    paths = [Path(p) for p in st.session_state.get("saved_paths", [])]
+    roles = list(st.session_state.get("roles") or [])
+    texts: list[str] = []
+    for path, role in zip(paths, roles):
+        if role == "current_policy":
+            continue
+        try:
+            texts.append(read_pdf(path)["text"])
+        except Exception:
+            texts.append("")
+    return texts
+
+
 def _write_draft_state() -> None:
     draft_id = str(st.session_state.get("active_draft_id") or "")
     if not _is_valid_draft_id(draft_id):
@@ -792,6 +817,7 @@ def _write_draft_state() -> None:
         "winner_tier_internal": st.session_state.get("winner_tier_internal", ""),
         "winner_quote_position": st.session_state.get("winner_quote_position"),
         "offer_tier_overrides": st.session_state.get("offer_tier_overrides", {}),
+        "target_deductible_uf": st.session_state.get("target_deductible_uf"),
         "resolved_extractions": st.session_state.get("resolved_extractions", []),
         "analysis": st.session_state.get("analysis", {}),
         "session_metrics": st.session_state.get("session_metrics", {}),
@@ -837,6 +863,7 @@ def _restore_draft_from_query() -> bool:
     st.session_state.offer_tier_overrides = {
         int(k): v for k, v in overrides.items()
     } if isinstance(overrides, dict) else {}
+    st.session_state.target_deductible_uf = draft.get("target_deductible_uf")
     st.session_state.resolved_extractions = draft.get("resolved_extractions", [])
     st.session_state.analysis = draft.get("analysis", {})
     st.session_state.session_metrics = draft.get("session_metrics", {})
@@ -896,6 +923,9 @@ def _persist_uploaded_files(uploaded_files) -> list[Path]:
     st.session_state.resolved_extractions = []
     st.session_state.analysis = {}
     st.session_state.session_metrics = {}
+    st.session_state.target_deductible_uf = None
+    st.session_state.pop("_common_ded_cache_key", None)
+    st.session_state.pop("_common_ded_options", None)
     _clear_generated_pdf_state()
     if st.session_state.get("run_status") != "running":
         _reset_run_status()
@@ -924,6 +954,8 @@ def _reset_proposal_state(remove_draft_files: bool = True) -> None:
     st.session_state.winner_tier_internal = ""
     st.session_state.winner_quote_position = None
     st.session_state.offer_tier_overrides = {}
+    st.session_state.target_deductible_uf = None
+    st.session_state.deductible_pricing_warnings = []
     st.session_state.extractions = []
     st.session_state.resolved_extractions = []
     st.session_state.analysis = {}
@@ -1015,6 +1047,8 @@ def main():
         st.session_state.winner_quote_position = None
     if "offer_tier_overrides" not in st.session_state:
         st.session_state.offer_tier_overrides = {}
+    if "target_deductible_uf" not in st.session_state:
+        st.session_state.target_deductible_uf = None
     if "extractions" not in st.session_state:
         st.session_state.extractions = []
     if "resolved_extractions" not in st.session_state:
@@ -1218,6 +1252,43 @@ def main():
         elif current_count > 1:
             st.info("Marca como máximo un archivo como póliza actual.")
 
+        common_deductibles: list[float] = []
+        if roles_ok:
+            st.subheader("2.1) Deducible de comparación")
+            quote_paths_ordered = [active_paths[i] for i in quote_indices]
+            cache_key = tuple(str(p) for p in quote_paths_ordered)
+            if st.session_state.get("_common_ded_cache_key") != cache_key:
+                try:
+                    common_deductibles = available_common_deductibles_for_paths(quote_paths_ordered)
+                except Exception:
+                    common_deductibles = []
+                st.session_state._common_ded_cache_key = cache_key
+                st.session_state._common_ded_options = common_deductibles
+            else:
+                common_deductibles = st.session_state.get("_common_ded_options", [])
+
+            if common_deductibles:
+                stored_target = st.session_state.get("target_deductible_uf")
+                default_ded = (
+                    stored_target
+                    if stored_target in common_deductibles
+                    else (5.0 if 5.0 in common_deductibles else common_deductibles[0])
+                )
+                selected_ded = st.selectbox(
+                    "Todas las columnas del PDF se compararán a este mismo deducible "
+                    "(detectado automáticamente en las tablas de precios de las cotizaciones).",
+                    options=common_deductibles,
+                    index=common_deductibles.index(default_ded),
+                    format_func=lambda v: f"{v:g} UF",
+                )
+                st.session_state.target_deductible_uf = selected_ded
+            else:
+                st.session_state.target_deductible_uf = None
+                st.caption(
+                    "No se detectó una tabla de precios homologable en todas las cotizaciones; "
+                    "el comparativo usará el deducible que determine el análisis por cotización."
+                )
+
         run_clicked = st.button(
             "3) Iniciar Extracción Documental",
             type="primary",
@@ -1348,6 +1419,16 @@ def main():
             "El JSON se ha estructurado. Modifica los campos que desees en los acordeones a continuación "
             "y haz clic en **Generar PDF** para previsualizar o descargar el comparativo al instante sin volver a llamar a OpenRouter."
         )
+
+        ded_warnings = st.session_state.get("deductible_pricing_warnings") or []
+        if ded_warnings:
+            with st.expander("⚠️ Aviso de homologación de deducible", expanded=False):
+                st.caption(
+                    "No se pudo confirmar automáticamente el precio al deducible elegido para algunas "
+                    "ofertas; revisa esos valores manualmente antes de generar el PDF."
+                )
+                for w in ded_warnings:
+                    st.write(f"- {w}")
 
         analysis = st.session_state.analysis
         if not _prepare_analysis_for_editor(analysis):
@@ -1748,6 +1829,17 @@ def _run_analysis_phase(client: OpenRouterClient, session: SessionMetrics):
     ):
         from src.uf_reference import apply_canonical_uf
         apply_canonical_uf(analysis, st.session_state.uf_ref[0], st.session_state.uf_ref[1])
+
+    target_deductible_uf = st.session_state.get("target_deductible_uf")
+    if (
+        target_deductible_uf is not None
+        and isinstance(analysis, dict)
+        and analysis.get("error") is None
+    ):
+        quote_texts = _ordered_quote_pdf_texts()
+        st.session_state.deductible_pricing_warnings = enforce_common_deductible(
+            analysis, quote_texts, target_deductible_uf
+        )
 
     st.session_state.analysis = analysis
     st.session_state.run_status = (

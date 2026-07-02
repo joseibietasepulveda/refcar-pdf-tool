@@ -322,9 +322,9 @@ Con eso podemos construir:
 - el template de salida;
 - la primera version del flujo local.
 
-## 10. Estado actual vs plan (junio 2026)
+## 10. Estado actual vs plan (julio 2026)
 
-El repositorio ya implementa una version Streamlit desplegable en Railway, distinta al stack sugerido en la seccion 5, pero alineada a los principios de producto:
+El repositorio ya implementa una version Streamlit desplegable en Railway, distinta al stack sugerido en la seccion 5, pero alineada a los principios de producto. La ultima correccion documentada separa el deducible de la prima mensual en la columna `Tu seguro hoy`.
 
 | Plan original | Implementado hoy |
 |---------------|------------------|

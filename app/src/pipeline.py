@@ -6,6 +6,7 @@ from .pdf_reader import read_pdf
 from .openrouter import OpenRouterClient
 from .prompts import build_extraction_prompt, build_analysis_prompt
 from .uf_reference import apply_canonical_uf
+from .deductible_pricing import enforce_common_deductible
 from .metrics import SessionMetrics
 
 
@@ -95,6 +96,7 @@ class Pipeline:
         roles: list[str],
         recommended_tier: str = "",
         uf_reference: tuple[float, str] | None = None,
+        target_deductible_uf: float | None = None,
     ) -> dict:
         """Run the full pipeline.
 
@@ -103,18 +105,23 @@ class Pipeline:
             roles: List of roles matching each PDF
             recommended_tier: Which tier the broker recommends
             uf_reference: Optional (uf_clp, date_iso) to fix UF
+            target_deductible_uf: Optional deductible (UF) to homogenize all offers to,
+                using deterministic price-table parsing (see `deductible_pricing.py`)
 
         Returns:
             Dict with extractions, analysis and validation results
         """
         total_steps = len(pdf_paths) + 1
         extractions = []
+        quote_pdf_texts: list[str] = []
         for i, (path, role) in enumerate(zip(pdf_paths, roles)):
             step_name = f"Extrayendo {path.name}"
             self._notify(step_name, i + 1, total_steps)
 
             pdf_data = read_pdf(path)
             doc_type = "current_policy" if role == "current_policy" else "quote"
+            if role != "current_policy":
+                quote_pdf_texts.append(pdf_data["text"])
             messages = build_extraction_prompt(
                 pdf_text=pdf_data["text"],
                 file_name=pdf_data["file_name"],
@@ -174,6 +181,13 @@ class Pipeline:
             and analysis.get("error") is None
         ):
             apply_canonical_uf(analysis, uf_reference[0], uf_reference[1])
+
+        if (
+            target_deductible_uf is not None
+            and isinstance(analysis, dict)
+            and analysis.get("error") is None
+        ):
+            enforce_common_deductible(analysis, quote_pdf_texts, target_deductible_uf)
 
         analysis_errors = validate_analysis(analysis)
 

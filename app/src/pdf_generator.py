@@ -63,18 +63,29 @@ def generate_summary_pdf(
     return generate_comparative_pdf(render_data, output_path)
 
 
+ASSISTANCE_LABEL_BY_CATEGORY = {
+    "economica": "Básica",
+    "equilibrada": "Equilibrada",
+    "premium": "Premium",
+}
+
+
 def _map_tier_to_category_and_badge(raw_tier: str) -> tuple[str, str]:
+    """Map a role/tier string to (category, badge_label).
+
+    The three commercial roles a broker can assign (Básico / Equilibrado / Pro)
+    always map to the same three labels, regardless of free-text variants that
+    the role or the LLM's `commercial_tier` might use (e.g. "ESTÁNDAR",
+    "INTERMEDIA", "PREMIUM").
+    """
     if not raw_tier:
-        return "economica", "④ OPCIÓN ECONÓMICA"
+        return "economica", "OPCIÓN ECONÓMICA"
     raw_lower = raw_tier.strip().lower()
     if any(k in raw_lower for k in ("premium", "pro", "alta")):
-        return "premium", "+ OPCIÓN PREMIUM"
-    elif any(k in raw_lower for k in ("operacional", "medio", "middle", "equilibrado", "equilibrio")):
-        return "mejor_operacional", "★ MEJOR OPERACIONAL"
-    elif any(k in raw_lower for k in ("intermedia", "intermedio")):
-        return "intermedia", "③ OPCIÓN INTERMEDIA"
-    else:
-        return "economica", "④ OPCIÓN ECONÓMICA"
+        return "premium", "OPCIÓN PREMIUM"
+    if any(k in raw_lower for k in ("equilibr", "operacional", "medio", "middle", "intermedia", "intermedio")):
+        return "equilibrada", "OPCIÓN EQUILIBRADA"
+    return "economica", "OPCIÓN ECONÓMICA"
 
 
 def _analysis_to_render(
@@ -216,6 +227,11 @@ def _analysis_to_render(
             raw_tier = offer_tier_overrides[position]
         category, badge_label = _map_tier_to_category_and_badge(raw_tier)
 
+        assistance_display = _coverage_display(offer.get("assistance"))
+        assistance_display["value"] = ASSISTANCE_LABEL_BY_CATEGORY.get(
+            category, assistance_display["value"]
+        )
+
         installments_val = _dv(offer.get("installments"))
         payment_method_val = _dv(offer.get("payment_method"))
         ded_payment_label = _build_deductible_payment_label(
@@ -252,7 +268,7 @@ def _analysis_to_render(
             "workshop": _coverage_display(offer.get("workshop")),
             "reposicion_a_nuevo": _coverage_display(offer.get("reposicion_a_nuevo")),
             "perdida_total": _coverage_display(offer.get("perdida_total")),
-            "assistance": _coverage_display(offer.get("assistance")),
+            "assistance": assistance_display,
             "asiento_pasajeros": _coverage_display(offer.get("asiento_pasajeros")),
             "defensa_penal": _coverage_display(offer.get("defensa_penal")),
             "deductible_options_title": "OPCIONES DE DEDUCIBLE" if ded_options else "",

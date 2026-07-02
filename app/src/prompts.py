@@ -89,7 +89,13 @@ def build_extraction_prompt(pdf_text: str, file_name: str, document_type: str, d
         f"Si `document_type` es `quote`, **busca en el PDF** la opción de pago en **11 cuotas** (tablas de primas, "
         f"texto explícito \"11 cuotas\", etc.). Si existe, úsala como fila principal de `pricing_options` y refleja "
         f"`installments`/cuotas coherentes con esa modalidad. Si no existe 11 cuotas, documenta en `extraction_status` "
-        f"qué modalidad usaste y por qué."
+        f"qué modalidad usaste y por qué.\n\n"
+        f"### ⚠️ Verificación de alineación deducible-prima en tablas grandes\n"
+        f"Algunas tablas listan el deducible en el encabezado de columna y, debajo, bloques repetidos por "
+        f"modalidad de pago (cantidad de cuotas, luego $ CLP, luego UF), todos alineados verticalmente en la "
+        f"misma columna del deducible. Antes de completar cada `moneyOption`, confirma columna por columna que "
+        f"`deductible_uf`, `monthly_premium_uf` y `monthly_premium_clp` vienen de la MISMA posición de columna "
+        f"dentro del bloque de 11 cuotas. Si la tabla es ambigua, baja `confidence` en vez de adivinar."
     )
 
     return [
@@ -237,6 +243,12 @@ def build_analysis_prompt(
         f"### Reglas específicas por aseguradora\n"
         f"- **HDI**: muchas tablas listan explícitamente **11 cuotas**; priorízala como arriba. "
         f"También puede declarar `R. CIVIL (...) EN EXCESO DE R. CIVIL BASE`: mapea esa fila a `rc_exceso` y conserva solo su monto adicional.\n\n"
+        f"### ⚠️ Verificación de alineación deducible-prima al elegir `pricing_options`\n"
+        f"Al fijar `comparison_deductible_uf`, `monthly_premium_uf` y `monthly_premium_clp` de cada oferta, usa "
+        f"SOLO un `moneyOption` de `fields.pricing_options` cuyo `deductible_uf` coincida exactamente con el "
+        f"deducible que estás reportando; no combines el `monthly_premium_uf` de una fila con el `deductible_uf` "
+        f"de otra fila distinta. Esto es un error frecuente en tablas grandes (varios deducibles × varias "
+        f"modalidades de cuotas): revisa que ambos valores pertenezcan a la misma opción antes de usarlos.\n\n"
         f"### ⚠️ REGLA CRÍTICA: Mapeo de coberturas desde la extracción\n"
         f"Las extracciones contienen `fields.coverages[]` y `fields.extra_features[]` con items que tienen un `key` estandarizado. "
         f"Debes mapear DIRECTAMENTE estos keys a los campos del análisis:\n"
