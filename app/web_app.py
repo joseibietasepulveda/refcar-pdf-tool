@@ -1261,18 +1261,15 @@ def main():
             if st.session_state.get("_common_ded_cache_key") != cache_key:
                 with st.spinner("Detectando deducibles disponibles en las cotizaciones..."):
                     try:
-                        all_deductibles, ded_coverage = available_any_deductibles_for_paths(quote_paths_ordered)
+                        all_deductibles, _coverage = available_any_deductibles_for_paths(quote_paths_ordered)
                     except Exception:
-                        all_deductibles, ded_coverage = [], {}
+                        all_deductibles = []
                 st.session_state._common_ded_cache_key = cache_key
                 st.session_state._common_ded_options = all_deductibles
-                st.session_state._common_ded_coverage = ded_coverage
             else:
                 all_deductibles = st.session_state.get("_common_ded_options", [])
-                ded_coverage = st.session_state.get("_common_ded_coverage", {})
 
             if all_deductibles:
-                total_quotes = len(quote_paths_ordered)
                 stored_target = st.session_state.get("target_deductible_uf")
                 default_ded = (
                     stored_target
@@ -1280,18 +1277,12 @@ def main():
                     else (5.0 if 5.0 in all_deductibles else all_deductibles[0])
                 )
 
-                def _format_ded(v: float) -> str:
-                    n = ded_coverage.get(v, 0)
-                    if n and n < total_quotes:
-                        return f"{v:g} UF (disponible en {n} de {total_quotes} cotizaciones)"
-                    return f"{v:g} UF"
-
                 selected_ded = st.selectbox(
                     "Todas las columnas del PDF se compararán a este mismo deducible "
                     "(detectado automáticamente en las tablas de precios de las cotizaciones).",
                     options=all_deductibles,
                     index=all_deductibles.index(default_ded),
-                    format_func=_format_ded,
+                    format_func=lambda v: f"{v:g} UF",
                 )
                 st.session_state.target_deductible_uf = selected_ded
             else:
